@@ -17,6 +17,7 @@ class TriviaServer:
     def __init__(self):
         self.running = True
         self.clients = []
+        self.correct_answers = []
         self.server_name = "AwesomeTriviaServer"
         # To Make sure this field is always 32 characters long even if your server name is shorter.
         self.padded_server_name = self.server_name.ljust(32)[:32]
@@ -29,6 +30,8 @@ class TriviaServer:
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.tcp_socket.bind(('0.0.0.0', TCP_PORT))
+
+
 
 
     def start(self):
@@ -90,17 +93,38 @@ class TriviaServer:
             except Exception as e:
                 print(f"Error sending data to client {name}: {e}")
 
+        # Wait for client answers or timeout
+        time.sleep(GAME_DURATION)
+        correct_answer = False
+        for client in self.clients:
+            name, _ = client
+            # Check if the client answered correctly
+            if name in self.correct_answers:
+                correct_answer = True
+                print(f"At least one player answered correctly.")
+                break
+
+        # If nobody answered correctly, or no one answered at all, choose another random question
+        if not correct_answer:
+            print("No one answered correctly. Choosing another random question...")
+            self.start_game()  # Start a new game
+
+
 
     def handle_client_answer(self, conn,stat,client_name):
         try:
             ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client
             # check if the answer is correct
-            if ((ans.lower() == "y" or ans.lower() == "t" or ans == "1")and stat in TRUE_STATEMENTS) or ((ans.lower() == "n" or ans.lower() == "f" or ans == "0")and stat in FALSE_STATEMENTS):
-                print(f"{client_name} is correct !")
+            if (ans.lower()=="y" or ans.lower()=="t" or ans=="1" or ans.lower()=="f" or ans.lower()=="n" or ans=="0"):
+                if ((ans.lower() == "y" or ans.lower() == "t" or ans == "1")and stat in TRUE_STATEMENTS) or ((ans.lower() == "n" or ans.lower() == "f" or ans == "0")and stat in FALSE_STATEMENTS):
+                    print(f"{client_name} is correct !")
+                    self.correct_answers.append(client_name)
+
+                else:
+                    print(f"{client_name} is incorrect !")
 
             else:
-                print(f"{client_name} is incorrect !")
-
+                print("invalid input")
 
         except Exception as e:
             print(f"Error while receiving answer from client: {e}")
