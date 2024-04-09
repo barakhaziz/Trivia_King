@@ -4,9 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="starting the trivia game">
+    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -94,7 +95,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1711453014273</updated>
-      <workItem from="1711453022637" duration="63148000" />
+      <workItem from="1711453022637" duration="78156000" />
     </task>
     <task id="LOCAL‎-00001" summary="hello_word">
       <option name="closed" value="true" />
@@ -136,7 +137,15 @@
       <option name="project" value="LOCAL‎" />
       <updated>1711812922038</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL‎-00006" summary="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection">
+      <option name="closed" value="true" />
+      <created>1711815787403</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL‎-00006" />
+      <option name="project" value="LOCAL‎" />
+      <updated>1711815787403</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -158,7 +167,8 @@
     <MESSAGE value="client server basic udp" />
     <MESSAGE value="first TCP connection" />
     <MESSAGE value="starting the trivia game" />
-    <option name="LAST_COMMIT_MESSAGE" value="starting the trivia game" />
+    <MESSAGE value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
+    <option name="LAST_COMMIT_MESSAGE" value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -167,6 +177,11 @@
           <url>file://$PROJECT_DIR$/Client.py</url>
           <line>63</line>
           <option name="timeStamp" value="59" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Server.py</url>
+          <line>93</line>
+          <option name="timeStamp" value="66" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -179,6 +194,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1711815378874" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1712682451564" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

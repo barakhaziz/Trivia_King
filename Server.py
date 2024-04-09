@@ -15,6 +15,7 @@ FALSE_STATEMENTS = ["Water boils at 100 degrees Fahrenheit.", "The Earth is flat
 
 class TriviaServer:
     def __init__(self):
+        ## change the IP address
         self.running = True
         self.clients = []
         self.correct_answers = []
@@ -89,7 +90,9 @@ class TriviaServer:
             name, conn = client
             try:
                 conn.sendall(f"{name}\n{message}".encode('utf-8'))  # Send the name and the message
+                #maybe not thread
                 threading.Thread(target=self.handle_client_answer, args=(conn,stat,name)).start()
+
             except Exception as e:
                 print(f"Error sending data to client {name}: {e}")
 
@@ -118,14 +121,17 @@ class TriviaServer:
             if (ans.lower()=="y" or ans.lower()=="t" or ans=="1" or ans.lower()=="f" or ans.lower()=="n" or ans=="0"):
                 if ((ans.lower() == "y" or ans.lower() == "t" or ans == "1")and stat in TRUE_STATEMENTS) or ((ans.lower() == "n" or ans.lower() == "f" or ans == "0")and stat in FALSE_STATEMENTS):
                     print(f"{client_name} is correct !")
-                    self.correct_answers.append(client_name)
+                    #self.correct_answers.append(client_name)
 
                 else:
                     print(f"{client_name} is incorrect !")
+                    #self.clients.remove(client_name)
 
             else:
                 print("invalid input")
 
         except Exception as e:
             print(f"Error while receiving answer from client: {e}")
+
+
 
