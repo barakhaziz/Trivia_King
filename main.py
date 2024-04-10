@@ -6,15 +6,15 @@ import random
 if __name__ == "__main__":
     server = TriviaServer()
     server.start()
-    client = TriviaClient("barak")
-    client.start()
-    client = TriviaClient("oded")
-    client.start()
-    client = TriviaClient("amit", True)
-    client.start()
-    for thread in threading.enumerate():
-        if thread != threading.current_thread():
-            thread.join()
+    # client = TriviaClient("barak")
+    # client.start()
+    # client = TriviaClient("oded")
+    # client.start()
+    # client = TriviaClient("amit", True)
+    # client.start()
+    # for thread in threading.enumerate():
+    #     if thread != threading.current_thread():
+    #         thread.join()
 
 
 # if __name__ == "__main__":

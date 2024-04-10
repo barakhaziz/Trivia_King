@@ -9,8 +9,8 @@ import time
 
 UDP_PORT = 13117
 MAGIC_COOKIE = 0xabcddcba
-SERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts
-
+SERVER_ADDRESS = '0.0.0.0'  # This might need to be '0.0.0.0' if listening for broadcasts
+# SERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts
 
 class TriviaClient:
     def __init__(self, name, is_bot=False):
