@@ -3,17 +3,24 @@ import socket
 import threading
 import struct
 import sys
+import random
+import time
+
 
 UDP_PORT = 13117
 MAGIC_COOKIE = 0xabcddcba
+SERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts
+
 
 class TriviaClient:
-    def __init__(self, name):
+    def __init__(self, name, is_bot=False):
         self.name = name
+        self.is_bot = is_bot  # Flag to indicate if this client is a bot
+        self.tcp_socket = None
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.udp_socket.bind(('0.0.0.0', UDP_PORT))
+        self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.running = True
 
@@ -39,8 +46,10 @@ class TriviaClient:
         try:
             self.tcp_socket.connect(server_addr)
             self.tcp_socket.sendall(f"{self.name}\n".encode('utf-8'))
-            threading.Thread(target=self.receive_server_data).start()
-
+            if self.is_bot:
+                self.bot_behavior()
+            else:
+                threading.Thread(target=self.receive_server_data).start()
         except Exception as e:
             print(f"Error connecting to server: {e}")
             sys.exit(1)
@@ -50,8 +59,9 @@ class TriviaClient:
             try:
                 data = self.tcp_socket.recv(1024).decode('utf-8')
                 if data:
-                    #print(data)  # Print the received message
-                    self.send_user_input()
+                    print(data)  # Uncomment to print the received message
+                    if not self.is_bot:  # Only prompt for input if not a bot
+                        self.send_user_input()
             except Exception as e:
                 print(f"Error receiving data from server: {e}")
                 break
@@ -69,6 +79,19 @@ class TriviaClient:
                 os._exit(0)
 
 
-
-
+    def bot_behavior(self):
+        """Simulate bot behavior by waiting for a question and then automatically answering."""
+        while self.running:
+            try:
+                # Wait for data from the server
+                data = self.tcp_socket.recv(1024).decode('utf-8').strip()
+                if data:
+                    # Simulate thinking time before sending an answer
+                    time.sleep(random.uniform(0.5, 2))
+                    answer = random.choice(['T', 'F'])  # Randomly choose an answer
+                    print(f"Bot {self.name} answering: {answer}")
+                    self.tcp_socket.sendall(answer.encode('utf-8') + b'\n')
+            except Exception as e:
+                print(f"Error in bot behavior: {e}")
+                break
 

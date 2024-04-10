@@ -26,11 +26,11 @@ class TriviaServer:
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.udp_socket.bind(('0.0.0.0', UDP_PORT))
+        self.udp_socket.bind(('127.0.0.1', UDP_PORT))
         # define TCP socket
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.tcp_socket.bind(('0.0.0.0', TCP_PORT))
+        self.tcp_socket.bind(('127.0.0.1', TCP_PORT))
 
 
 
