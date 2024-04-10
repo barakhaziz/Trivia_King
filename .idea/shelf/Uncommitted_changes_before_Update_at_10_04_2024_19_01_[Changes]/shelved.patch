@@ -1,0 +1,203 @@
+Index: main.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>from Client import TriviaClient\r\nfrom Server import TriviaServer\r\nimport threading\r\nimport random\r\n\r\nif __name__ == \"__main__\":\r\n    server = TriviaServer()\r\n    server.start()\r\n    client = TriviaClient(\"barak\")\r\n    client.start()\r\n    client = TriviaClient(\"oded\")\r\n    client.start()\r\n    client = TriviaClient(\"amit\", True)\r\n    client.start()\r\n    for thread in threading.enumerate():\r\n        if thread != threading.current_thread():\r\n            thread.join()\r\n\r\n\r\n# if __name__ == \"__main__\":\r\n#     bot_name = \"BOT:\" + str(random.randint(1, 100))  # Generate a unique name for the bot\r\n#     bot_client = TriviaClient(bot_name, is_bot=True)\r\n#     bot_client.start()\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/main.py b/main.py
+--- a/main.py	(revision 2f1bbf75756eb9d6fdd4e96183560eba5d9a398e)
++++ b/main.py	(date 1712758638170)
+@@ -6,15 +6,15 @@
+ if __name__ == "__main__":
+     server = TriviaServer()
+     server.start()
+-    client = TriviaClient("barak")
+-    client.start()
+-    client = TriviaClient("oded")
+-    client.start()
+-    client = TriviaClient("amit", True)
+-    client.start()
+-    for thread in threading.enumerate():
+-        if thread != threading.current_thread():
+-            thread.join()
++    # client = TriviaClient("barak")
++    # client.start()
++    # client = TriviaClient("oded")
++    # client.start()
++    # client = TriviaClient("amit", True)
++    # client.start()
++    # for thread in threading.enumerate():
++    #     if thread != threading.current_thread():
++    #         thread.join()
+ 
+ 
+ # if __name__ == "__main__":
+Index: Server.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import socket\r\nimport threading\r\nimport struct\r\nimport random\r\nimport time\r\n\r\n# Constants\r\nUDP_PORT = 13117\r\nTCP_PORT = 5555\r\nMAGIC_COOKIE = 0xabcddcba\r\nGAME_DURATION = 10  # in seconds\r\nTRUE_STATEMENTS = [\"Python is a programming language.\", \"The sun rises in the east.\"]\r\nFALSE_STATEMENTS = [\"Water boils at 100 degrees Fahrenheit.\", \"The Earth is flat.\"]\r\n\r\n\r\nclass TriviaServer:\r\n    def __init__(self):\r\n        ## change the IP address\r\n        self.running = True\r\n        self.clients = []\r\n        self.correct_answers = []\r\n        self.server_name = \"AwesomeTriviaServer\"\r\n        # To Make sure this field is always 32 characters long even if your server name is shorter.\r\n        self.padded_server_name = self.server_name.ljust(32)[:32]\r\n        # define UDP socket\r\n        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)\r\n        self.udp_socket.bind(('127.0.0.1', UDP_PORT))\r\n        # define TCP socket\r\n        self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\r\n        self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\r\n        self.tcp_socket.bind(('127.0.0.1', TCP_PORT))\r\n\r\n\r\n\r\n\r\n    def start(self):\r\n        self.tcp_socket.listen(5)  # Listen for incoming connections\r\n        print(f\"Server started, listening on IP address {self.udp_socket.getsockname()[0]}...\")\r\n\r\n        threading.Thread(target=self.broadcast_message).start()\r\n        threading.Thread(target=self.wait_for_clients).start()\r\n\r\n    def broadcast_message(self):\r\n        while True:\r\n            # UDP Broadcast the message to all devices on the network\r\n            broadcast_address = ('<broadcast>', UDP_PORT)\r\n            message = struct.pack(\"!Ib32sH\", MAGIC_COOKIE, 0x2, self.padded_server_name.encode('utf-8'), TCP_PORT)\r\n            self.udp_socket.sendto(message, broadcast_address)\r\n            # Sleep for a short duration to avoid flooding the network\r\n            time.sleep(1)  # You can adjust the sleep duration as needed\r\n\r\n    def wait_for_clients(self):\r\n        start_time = time.time()\r\n        self.tcp_socket.settimeout(GAME_DURATION)\r\n        while self.running:\r\n            try:\r\n                conn, tcp_addr = self.tcp_socket.accept()  # Accept TCP connection\r\n                threading.Thread(target=self.handle_tcp_client, args=(conn, tcp_addr)).start()\r\n            except socket.timeout:\r\n                if time.time() - start_time >= GAME_DURATION:\r\n                    self.running = False\r\n                    self.start_game()\r\n\r\n    def handle_tcp_client(self, conn, addr):\r\n        team_name = conn.recv(1024).decode('utf-8').strip()\r\n        self.clients.append((team_name, conn))  # Store client conn\r\n        print(f\"Team {team_name} connected from {addr[0]}\")\r\n\r\n    def start_game(self):\r\n\r\n        start_time = time.time()\r\n        true_statement = random.choice(TRUE_STATEMENTS)\r\n        false_statement = random.choice(FALSE_STATEMENTS)\r\n        true_false = (true_statement, false_statement)\r\n\r\n        # Build the welcome message\r\n        message = f\"Welcome to the {self.server_name}, where we are answering trivia questions about NBA. \\n\"\r\n        counter = 1\r\n        for client in self.clients:\r\n            message += f\"Player {counter} : {client[0]}\\n\"\r\n            counter += 1\r\n        message += f\" == \\n\"\r\n        stat=random.choice(true_false)\r\n        message += f\"True or False: {stat}\\n\"\r\n        print(message)\r\n        # Send the welcome message to all clients\r\n        for client in self.clients:\r\n            name, conn = client\r\n            try:\r\n                conn.sendall(f\"{name}\\n{message}\".encode('utf-8'))  # Send the name and the message\r\n                #maybe not thread\r\n                threading.Thread(target=self.handle_client_answer, args=(conn,stat,name)).start()\r\n\r\n            except Exception as e:\r\n                print(f\"Error sending data to client {name}: {e}\")\r\n\r\n        # Wait for client answers or timeout\r\n        time.sleep(GAME_DURATION)\r\n        correct_answer = False\r\n        for client in self.clients:\r\n            name, _ = client\r\n            # Check if the client answered correctly\r\n            if name in self.correct_answers:\r\n                correct_answer = True\r\n                print(f\"At least one player answered correctly.\")\r\n                break\r\n\r\n        # If nobody answered correctly, or no one answered at all, choose another random question\r\n        if not correct_answer:\r\n            print(\"No one answered correctly. Choosing another random question...\")\r\n            self.start_game()  # Start a new game\r\n\r\n\r\n\r\n    def handle_client_answer(self, conn,stat,client_name):\r\n        try:\r\n            ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client\r\n            # check if the answer is correct\r\n            if (ans.lower()==\"y\" or ans.lower()==\"t\" or ans==\"1\" or ans.lower()==\"f\" or ans.lower()==\"n\" or ans==\"0\"):\r\n                if ((ans.lower() == \"y\" or ans.lower() == \"t\" or ans == \"1\")and stat in TRUE_STATEMENTS) or ((ans.lower() == \"n\" or ans.lower() == \"f\" or ans == \"0\")and stat in FALSE_STATEMENTS):\r\n                    print(f\"{client_name} is correct !\")\r\n                    #self.correct_answers.append(client_name)\r\n\r\n                else:\r\n                    print(f\"{client_name} is incorrect !\")\r\n                    #self.clients.remove(client_name)\r\n\r\n            else:\r\n                print(\"invalid input\")\r\n\r\n        except Exception as e:\r\n            print(f\"Error while receiving answer from client: {e}\")\r\n\r\n\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Server.py b/Server.py
+--- a/Server.py	(revision 2f1bbf75756eb9d6fdd4e96183560eba5d9a398e)
++++ b/Server.py	(date 1712762231798)
+@@ -11,7 +11,8 @@
+ GAME_DURATION = 10  # in seconds
+ TRUE_STATEMENTS = ["Python is a programming language.", "The sun rises in the east."]
+ FALSE_STATEMENTS = ["Water boils at 100 degrees Fahrenheit.", "The Earth is flat."]
+-
++SERVER_ADDRESS = '0.0.0.0'
++# SERVER_ADDRESS = '127.0.0.1'
+ 
+ class TriviaServer:
+     def __init__(self):
+@@ -26,11 +27,11 @@
+         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+-        self.udp_socket.bind(('127.0.0.1', UDP_PORT))
++        self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))
+         # define TCP socket
+         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+         self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+-        self.tcp_socket.bind(('127.0.0.1', TCP_PORT))
++        self.tcp_socket.bind((SERVER_ADDRESS, TCP_PORT))
+ 
+ 
+ 
+Index: Client.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import os\r\nimport socket\r\nimport threading\r\nimport struct\r\nimport sys\r\nimport random\r\nimport time\r\n\r\n\r\nUDP_PORT = 13117\r\nMAGIC_COOKIE = 0xabcddcba\r\nSERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts\r\n\r\n\r\nclass TriviaClient:\r\n    def __init__(self, name, is_bot=False):\r\n        self.name = name\r\n        self.is_bot = is_bot  # Flag to indicate if this client is a bot\r\n        self.tcp_socket = None\r\n        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)\r\n        self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))\r\n        self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\r\n        self.running = True\r\n\r\n    def start(self):\r\n        print(f\"Client {self.name} started, listening for offer requests...\")\r\n        self.listen_to_broadcast()\r\n\r\n    def listen_to_broadcast(self):\r\n        while True:\r\n            try:\r\n                data, addr = self.udp_socket.recvfrom(1024)\r\n                magic_cookie, msg_type = struct.unpack(\"!Ib\", data[:5])\r\n                if magic_cookie == MAGIC_COOKIE and msg_type == 0x2:\r\n                    server_name = data[5:37].decode('utf-8').strip()\r\n                    server_port = struct.unpack(\"!H\", data[37:39])[0]\r\n                    print(f\"Received offer from {server_name} at address {addr[0]}, connecting...\")\r\n                    self.connect_to_server((addr[0], server_port))\r\n                    break\r\n            except Exception as e:\r\n                print(f\"Error while listening for offers: {e}\")\r\n\r\n    def connect_to_server(self, server_addr):\r\n        try:\r\n            self.tcp_socket.connect(server_addr)\r\n            self.tcp_socket.sendall(f\"{self.name}\\n\".encode('utf-8'))\r\n            if self.is_bot:\r\n                self.bot_behavior()\r\n            else:\r\n                threading.Thread(target=self.receive_server_data).start()\r\n        except Exception as e:\r\n            print(f\"Error connecting to server: {e}\")\r\n            sys.exit(1)\r\n\r\n    def receive_server_data(self):\r\n        while self.running:\r\n            try:\r\n                data = self.tcp_socket.recv(1024).decode('utf-8')\r\n                if data:\r\n                    print(data)  # Uncomment to print the received message\r\n                    if not self.is_bot:  # Only prompt for input if not a bot\r\n                        self.send_user_input()\r\n            except Exception as e:\r\n                print(f\"Error receiving data from server: {e}\")\r\n                break\r\n\r\n\r\n    def send_user_input(self):\r\n        while self.running:\r\n            try:\r\n                user_input = input()\r\n                self.tcp_socket.sendall(user_input.encode('utf-8') + b'\\n')\r\n            except KeyboardInterrupt:\r\n                print(\"Exiting...\")\r\n                self.running = False\r\n                self.tcp_socket.close()\r\n                os._exit(0)\r\n\r\n\r\n    def bot_behavior(self):\r\n        \"\"\"Simulate bot behavior by waiting for a question and then automatically answering.\"\"\"\r\n        while self.running:\r\n            try:\r\n                # Wait for data from the server\r\n                data = self.tcp_socket.recv(1024).decode('utf-8').strip()\r\n                if data:\r\n                    # Simulate thinking time before sending an answer\r\n                    time.sleep(random.uniform(0.5, 2))\r\n                    answer = random.choice(['T', 'F'])  # Randomly choose an answer\r\n                    print(f\"Bot {self.name} answering: {answer}\")\r\n                    self.tcp_socket.sendall(answer.encode('utf-8') + b'\\n')\r\n            except Exception as e:\r\n                print(f\"Error in bot behavior: {e}\")\r\n                break\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Client.py b/Client.py
+--- a/Client.py	(revision 2f1bbf75756eb9d6fdd4e96183560eba5d9a398e)
++++ b/Client.py	(date 1712762231805)
+@@ -9,8 +9,8 @@
+ 
+ UDP_PORT = 13117
+ MAGIC_COOKIE = 0xabcddcba
+-SERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts
+-
++SERVER_ADDRESS = '0.0.0.0'  # This might need to be '0.0.0.0' if listening for broadcasts
++# SERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts
+ 
+ class TriviaClient:
+     def __init__(self, name, is_bot=False):
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"4b125e54-2be9-48a8-902e-9cc7aee8c5a7\" name=\"Changes\" comment=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\">\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/Trivia_King.iml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/Trivia_King.iml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/misc.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/misc.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Client.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Client.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Server.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Server.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/main.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/main.py\" afterDir=\"false\" />\r\n    </list>\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"FileTemplateManagerImpl\">\r\n    <option name=\"RECENT_TEMPLATES\">\r\n      <list>\r\n        <option value=\"Python Script\" />\r\n      </list>\r\n    </option>\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 5\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2eDxafKyTgwscsfmkoAQYGz33fM\" />\r\n  <component name=\"ProjectLevelVcsManager\" settingsEditedManually=\"true\">\r\n    <ConfirmationsSetting value=\"2\" id=\"Add\" />\r\n  </component>\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\"><![CDATA[{\r\n  \"keyToString\": {\r\n    \"Python.Client.executor\": \"Run\",\r\n    \"Python.main.executor\": \"Run\",\r\n    \"RunOnceActivity.OpenProjectViewOnStart\": \"true\",\r\n    \"RunOnceActivity.ShowReadmeOnStart\": \"true\",\r\n    \"git-widget-placeholder\": \"master\",\r\n    \"node.js.detected.package.eslint\": \"true\",\r\n    \"node.js.detected.package.tslint\": \"true\",\r\n    \"node.js.selected.package.eslint\": \"(autodetect)\",\r\n    \"node.js.selected.package.tslint\": \"(autodetect)\",\r\n    \"nodejs_package_manager_path\": \"npm\",\r\n    \"settings.editor.selected.configurable\": \"org.jetbrains.plugins.github.ui.GithubSettingsConfigurable\",\r\n    \"vue.rearranger.settings.migration\": \"true\"\r\n  }\r\n}]]></component>\r\n  <component name=\"RunManager\" selected=\"Python.main\">\r\n    <configuration name=\"Client\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\r\n      <module name=\"Trivia_King\" />\r\n      <option name=\"ENV_FILES\" value=\"\" />\r\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\r\n      <option name=\"PARENT_ENVS\" value=\"true\" />\r\n      <envs>\r\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\r\n      </envs>\r\n      <option name=\"SDK_HOME\" value=\"\" />\r\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$\" />\r\n      <option name=\"IS_MODULE_SDK\" value=\"true\" />\r\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\r\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\r\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\r\n      <option name=\"SCRIPT_NAME\" value=\"$PROJECT_DIR$/Client.py\" />\r\n      <option name=\"PARAMETERS\" value=\"\" />\r\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\r\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\r\n      <option name=\"MODULE_MODE\" value=\"false\" />\r\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\r\n      <option name=\"INPUT_FILE\" value=\"\" />\r\n      <method v=\"2\" />\r\n    </configuration>\r\n    <configuration name=\"main\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\r\n      <module name=\"Trivia_King\" />\r\n      <option name=\"ENV_FILES\" value=\"\" />\r\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\r\n      <option name=\"PARENT_ENVS\" value=\"true\" />\r\n      <envs>\r\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\r\n      </envs>\r\n      <option name=\"SDK_HOME\" value=\"\" />\r\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$\" />\r\n      <option name=\"IS_MODULE_SDK\" value=\"true\" />\r\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\r\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\r\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\r\n      <option name=\"SCRIPT_NAME\" value=\"$PROJECT_DIR$/main.py\" />\r\n      <option name=\"PARAMETERS\" value=\"\" />\r\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\r\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\r\n      <option name=\"MODULE_MODE\" value=\"false\" />\r\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\r\n      <option name=\"INPUT_FILE\" value=\"\" />\r\n      <method v=\"2\" />\r\n    </configuration>\r\n    <recent_temporary>\r\n      <list>\r\n        <item itemvalue=\"Python.main\" />\r\n        <item itemvalue=\"Python.Client\" />\r\n      </list>\r\n    </recent_temporary>\r\n  </component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"4b125e54-2be9-48a8-902e-9cc7aee8c5a7\" name=\"Changes\" comment=\"\" />\r\n      <created>1711453014273</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1711453014273</updated>\r\n      <workItem from=\"1711453022637\" duration=\"78156000\" />\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00001\" summary=\"hello_word\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711453362210</created>\r\n      <option name=\"number\" value=\"00001\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00001\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711453362210</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00002\" summary=\"hello_word\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711453520259</created>\r\n      <option name=\"number\" value=\"00002\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00002\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711453520259</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00003\" summary=\"client server basic udp\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711488397637</created>\r\n      <option name=\"number\" value=\"00003\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00003\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711488397637</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00004\" summary=\"first TCP connection\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711721996446</created>\r\n      <option name=\"number\" value=\"00004\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00004\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711721996446</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00005\" summary=\"starting the trivia game\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711812922038</created>\r\n      <option name=\"number\" value=\"00005\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00005\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711812922038</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00006\" summary=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711815787403</created>\r\n      <option name=\"number\" value=\"00006\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00006\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711815787403</updated>\r\n    </task>\r\n    <option name=\"localTasksCounter\" value=\"7\" />\r\n    <servers />\r\n  </component>\r\n  <component name=\"TypeScriptGeneratedFilesManager\">\r\n    <option name=\"version\" value=\"3\" />\r\n  </component>\r\n  <component name=\"Vcs.Log.Tabs.Properties\">\r\n    <option name=\"TAB_STATES\">\r\n      <map>\r\n        <entry key=\"MAIN\">\r\n          <value>\r\n            <State />\r\n          </value>\r\n        </entry>\r\n      </map>\r\n    </option>\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <MESSAGE value=\"hello_word\" />\r\n    <MESSAGE value=\"client server basic udp\" />\r\n    <MESSAGE value=\"first TCP connection\" />\r\n    <MESSAGE value=\"starting the trivia game\" />\r\n    <MESSAGE value=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\" />\r\n  </component>\r\n  <component name=\"XDebuggerManager\">\r\n    <breakpoint-manager>\r\n      <default-breakpoints>\r\n        <breakpoint type=\"python-exception\">\r\n          <properties notifyOnTerminate=\"true\" exception=\"BaseException\">\r\n            <option name=\"notifyOnTerminate\" value=\"true\" />\r\n          </properties>\r\n        </breakpoint>\r\n      </default-breakpoints>\r\n    </breakpoint-manager>\r\n  </component>\r\n  <component name=\"com.intellij.coverage.CoverageDataManagerImpl\">\r\n    <SUITE FILE_PATH=\"coverage/Trivia_King$Client.coverage\" NAME=\"Client Coverage Results\" MODIFIED=\"1712735526122\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"false\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\r\n    <SUITE FILE_PATH=\"coverage/Trivia_King$main.coverage\" NAME=\"main Coverage Results\" MODIFIED=\"1712737611462\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"false\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\r\n  </component>\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision 2f1bbf75756eb9d6fdd4e96183560eba5d9a398e)
++++ b/.idea/workspace.xml	(date 1712764901212)
+@@ -4,9 +4,7 @@
+     <option name="autoReloadType" value="SELECTIVE" />
+   </component>
+   <component name="ChangeListManager">
+-    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection">
+-      <change beforePath="$PROJECT_DIR$/.idea/Trivia_King.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Trivia_King.iml" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
++    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="adding BOT">
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/Client.py" beforeDir="false" afterPath="$PROJECT_DIR$/Client.py" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
+@@ -38,22 +36,22 @@
+     <option name="hideEmptyMiddlePackages" value="true" />
+     <option name="showLibraryContents" value="true" />
+   </component>
+-  <component name="PropertiesComponent"><![CDATA[{
+-  "keyToString": {
+-    "Python.Client.executor": "Run",
+-    "Python.main.executor": "Run",
+-    "RunOnceActivity.OpenProjectViewOnStart": "true",
+-    "RunOnceActivity.ShowReadmeOnStart": "true",
+-    "git-widget-placeholder": "master",
+-    "node.js.detected.package.eslint": "true",
+-    "node.js.detected.package.tslint": "true",
+-    "node.js.selected.package.eslint": "(autodetect)",
+-    "node.js.selected.package.tslint": "(autodetect)",
+-    "nodejs_package_manager_path": "npm",
+-    "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
+-    "vue.rearranger.settings.migration": "true"
++  <component name="PropertiesComponent">{
++  &quot;keyToString&quot;: {
++    &quot;Python.Client.executor&quot;: &quot;Run&quot;,
++    &quot;Python.main.executor&quot;: &quot;Run&quot;,
++    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
++    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
++    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
++    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
++    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
++    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
++    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
++    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
++    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,
++    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+   }
+-}]]></component>
++}</component>
+   <component name="RunManager" selected="Python.main">
+     <configuration name="Client" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+       <module name="Trivia_King" />
+@@ -111,7 +109,8 @@
+   <component name="SharedIndexes">
+     <attachedChunks>
+       <set>
+-        <option value="bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11" />
++        <option value="bundled-js-predefined-1d06a55b98c1-74d2a5396914-JavaScript-PY-241.14494.241" />
++        <option value="bundled-python-sdk-0509580d9d50-28c9f5db9ffe-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.14494.241" />
+       </set>
+     </attachedChunks>
+   </component>
+@@ -124,6 +123,7 @@
+       <option name="presentableId" value="Default" />
+       <updated>1711453014273</updated>
+       <workItem from="1711453022637" duration="78156000" />
++      <workItem from="1712762155623" duration="2423000" />
+     </task>
+     <task id="LOCAL‎-00001" summary="hello_word">
+       <option name="closed" value="true" />
+@@ -173,7 +173,15 @@
+       <option name="project" value="LOCAL‎" />
+       <updated>1711815787403</updated>
+     </task>
+-    <option name="localTasksCounter" value="7" />
++    <task id="LOCAL‎-00007" summary="adding BOT">
++      <option name="closed" value="true" />
++      <created>1712738412930</created>
++      <option name="number" value="00007" />
++      <option name="presentableId" value="LOCAL‎-00007" />
++      <option name="project" value="LOCAL‎" />
++      <updated>1712738412931</updated>
++    </task>
++    <option name="localTasksCounter" value="8" />
+     <servers />
+   </component>
+   <component name="TypeScriptGeneratedFilesManager">
+@@ -196,7 +204,8 @@
+     <MESSAGE value="first TCP connection" />
+     <MESSAGE value="starting the trivia game" />
+     <MESSAGE value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
+-    <option name="LAST_COMMIT_MESSAGE" value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
++    <MESSAGE value="adding BOT" />
++    <option name="LAST_COMMIT_MESSAGE" value="adding BOT" />
+   </component>
+   <component name="XDebuggerManager">
+     <breakpoint-manager>
+@@ -211,6 +220,6 @@
+   </component>
+   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+     <SUITE FILE_PATH="coverage/Trivia_King$Client.coverage" NAME="Client Coverage Results" MODIFIED="1712735526122" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+-    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1712737611462" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
++    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1712763559553" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+   </component>
+ </project>
+\ No newline at end of file

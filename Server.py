@@ -92,7 +92,7 @@ class TriviaServer:
                 message += f"Player {counter} : {client[0]}\n"
                 counter += 1
             message += f" == \n"
-            stat=random.choice(true_false)
+            stat = random.choice(true_false)
             message += f"True or False: {stat}\n"
             print(message)
             # Send the welcome message to all clients
@@ -101,7 +101,7 @@ class TriviaServer:
                 name, conn = client
                 try:
                     print(f"send message to {client}")
-                    conn.sendall(f"{name}\n{message}".encode('utf-8'))  # Send the name and the message
+                    onn.sendall(f"{name}\n{message}".encode('utf-8'))  # Send the name and the message
                     # self.handle_client_answer(conn, stat, name)
                     thread = threading.Thread(target=self.handle_client_answer, args=(conn, stat, name))
                     thread.start()  # Start the thread without immediately joining it
