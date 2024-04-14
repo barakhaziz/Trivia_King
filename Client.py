@@ -6,6 +6,7 @@ import sys
 import random
 import time
 
+
 UDP_PORT = 13117
 MAGIC_COOKIE = 0xabcddcba
 SERVER_ADDRESS = '0.0.0.0'  # For listening for broadcasts

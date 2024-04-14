@@ -3,13 +3,17 @@ import threading
 import struct
 import random
 import time
-
+import logging
+from datetime import datetime
 # Constants
 UDP_PORT = 13117
 TCP_PORT = 5555
 MAGIC_COOKIE = 0xabcddcba
 GAME_DURATION = 5  # in seconds
 
+# Initialize logging
+logging.basicConfig(filename='server.log', level=logging.INFO,
+                    format='%(asctime)s:%(levelname)s:%(message)s')
 TRUE_STATEMENTS = [
     "Michael Jordan won 6 NBA championships.",
     "The Los Angeles Lakers have won 17 NBA championships.",
@@ -59,6 +63,8 @@ class TriviaServer:
 
 
     def start(self):
+        game_start_time = datetime.now()
+        logging.info(f"Game started at {game_start_time}")
         self.tcp_socket.listen(5)  # Listen for incoming connections
         print(f"Server started, listening on IP address {self.udp_socket.getsockname()[0]}...\n")
 
@@ -81,15 +87,15 @@ class TriviaServer:
         while self.running:
             try:
                 conn, tcp_addr = self.tcp_socket.accept()  # Accept TCP connection
+                logging.info(f"New client {tcp_addr[0]} connected.")
                 thread=threading.Thread(target=self.handle_tcp_client, args=(conn, tcp_addr))
                 threads.append(thread)# Add the thread to the list
                 thread.start()  # Join each thread
-            except socket.timeout:
+            except socket.timeout as e:
+                logging.error(f"Accepting new client timed out: {e}")
                 if time.time() - start_time >= GAME_DURATION:
                     self.running = False
                     self.start_game()
-            # for thread in threads:
-            #     thread.join()
 
     def handle_tcp_client(self, conn, addr):
         try:
@@ -97,14 +103,17 @@ class TriviaServer:
             if any(team_name == existing_name for existing_name, _ in self.origin_clients):
                 conn.sendall("Name is taken, choose a new one.".encode('utf-8'))
                 conn.close()
+                logging.warning(f"Duplicate name attempt from {addr[0]} denied.")
                 print(f"Duplicate name attempt from {addr[0]} denied.")
             else:
                 self.clients.append((team_name, conn))  # Store client conn
                 self.origin_clients.append((team_name, conn))
+                logging.info(f"Team {team_name} connected from {addr[0]}")
                 print(f"Team {team_name} connected from {addr[0]}\n")
         except Exception as e:
-            print(f"Error handling client {addr}: {e}")
-            conn.close()
+            logging.error(f"Error handling client {addr}: {e}")
+            self.remove_client(conn, team_name)  # Safely remove client on error
+
 
 
     def start_game(self):
@@ -128,6 +137,7 @@ class TriviaServer:
                 message = f"Round {round}, played by {player_names}:\n"
                 stat = random.choice(true_false)
                 message += f"True or False: {stat}\n"
+            logging.info(f"The asked question of round {round} is {stat}")
             print(message)
             # Send the welcome message to all clients
             threads = []
@@ -142,6 +152,7 @@ class TriviaServer:
                     thread.start()  # Start the thread without immediately joining it
                     threads.append(thread)
                 except Exception as e:
+
                     print(f"Error sending data to client {name}: {e}")
             for thread in threads:
                 thread.join()  # Join each thread
@@ -176,22 +187,31 @@ class TriviaServer:
             while True:
                 ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client
                 # Check if the answer is valid
+                received_time = datetime.now()
+                logging.info(f"Received answer '{ans}' from {client_name} at {received_time}")
                 if ans.lower() in ("y", "t", "1", "f", "n", "0"):
                     if ((ans.lower() in ("y", "t", "1") and stat in TRUE_STATEMENTS) or
                             (ans.lower() in ("n", "f", "0") and stat in FALSE_STATEMENTS)):
                         print(f"{client_name} is correct!")
+                        logging.info(f"{client_name} is correct!")
                         self.correct_answers.append(client_name)
                         break  # Exit the loop as the client gave a correct response
                     else:
+                        logging.info(f"{client_name} is incorrect!")
                         print(f"{client_name} is incorrect!")
                         break  # Exit the loop as the client gave an incorrect but valid response
                 else:
                     print("Invalid input. Please send 'T' or 'F'.")
                     conn.sendall("Invalid input. Please send 'T' or 'F'.\n".encode('utf-8'))  # Prompt for correct input
         except Exception as e:
-            print(f"Error while receiving answer from {client_name}: {e}")
-            conn.close()  # Close connection on error
-
+            logging.error(f"Error while receiving answer from {client_name}: {e}")
+            self.remove_client(conn, client_name)
+    def remove_client(self, conn, client_name):
+        conn.close()
+        self.clients = [(name, sock) for name, sock in self.clients if sock != conn]
+        self.origin_clients = [(name, sock) for name, sock in self.origin_clients if sock != conn]
+        print(f"Disconnected: {client_name} has been removed from the game.")
+        logging.info(f"Disconnected: {client_name} has been removed from the game.")
     # def handle_client_answer(self, conn,stat,client_name):
     #     try:
     #         ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client
@@ -212,4 +232,5 @@ class TriviaServer:
     #         print(f"Error while receiving answer from client: {e}")
 
 
-# what we do for invalid inputf
+# what we do for invalid input - V
+# how handle in case of client disconnet in the middle of the game: save it state or delete it - V
