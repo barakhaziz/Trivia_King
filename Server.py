@@ -8,10 +8,33 @@ import time
 UDP_PORT = 13117
 TCP_PORT = 5555
 MAGIC_COOKIE = 0xabcddcba
-GAME_DURATION = 3  # in seconds
-TRUE_STATEMENTS = ["Python is a programming language.", "The sun rises in the east."]
-FALSE_STATEMENTS = ["Water boils at 100 degrees Fahrenheit.", "The Earth is flat."]
+GAME_DURATION = 5  # in seconds
 
+TRUE_STATEMENTS = [
+    "Michael Jordan won 6 NBA championships.",
+    "The Los Angeles Lakers have won 17 NBA championships.",
+    "LeBron James was drafted first overall in 2003.",
+    "The Boston Celtics have the most NBA championships.",
+    "Kobe Bryant spent his entire career with the Los Angeles Lakers.",
+    "Tim Duncan won five NBA championships with the San Antonio Spurs.",
+    "Shaquille O'Neal won his first NBA championship in 2000.",
+    "The Golden State Warriors broke the record for the most wins in a season in 2016.",
+    "Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.",
+    "The Toronto Raptors won their first NBA Championship in 2019."
+]
+
+FALSE_STATEMENTS = [
+    "The Chicago Bulls have won 10 NBA championships.",
+    "Kareem Abdul-Jabbar scored 100 points in a single NBA game.",
+    "The Detroit Pistons have never won an NBA championship.",
+    "Michael Jordan was drafted by the Portland Trail Blazers.",
+    "The Miami Heat was established in 1970.",
+    "Kevin Durant won his first NBA championship with the Oklahoma City Thunder.",
+    "The NBA was founded in 1949 as the National Basketball Association.",
+    "Allen Iverson won two NBA championships.",
+    "The New York Knicks won the NBA Championship in 2012.",
+    "LeBron James has never won an NBA MVP award."
+]
 
 class TriviaServer:
     def __init__(self):
@@ -69,30 +92,42 @@ class TriviaServer:
             #     thread.join()
 
     def handle_tcp_client(self, conn, addr):
-
-        team_name = conn.recv(1024).decode('utf-8').strip()
-        self.clients.append((team_name, conn))  # Store client conn
-        self.origin_clients.append((team_name, conn))
-        print(f"Team {team_name} connected from {addr[0]}\n")
+        try:
+            team_name = conn.recv(1024).decode('utf-8').strip()
+            if any(team_name == existing_name for existing_name, _ in self.origin_clients):
+                conn.sendall("Name is taken, choose a new one.".encode('utf-8'))
+                conn.close()
+                print(f"Duplicate name attempt from {addr[0]} denied.")
+            else:
+                self.clients.append((team_name, conn))  # Store client conn
+                self.origin_clients.append((team_name, conn))
+                print(f"Team {team_name} connected from {addr[0]}\n")
+        except Exception as e:
+            print(f"Error handling client {addr}: {e}")
+            conn.close()
 
 
     def start_game(self):
-
+        round = 1
         while len(self.clients) > 0:
             start_time = time.time()
             true_statement = random.choice(TRUE_STATEMENTS)
             false_statement = random.choice(FALSE_STATEMENTS)
             true_false = (true_statement, false_statement)
-
-            # Build the welcome message
-            message = f"Welcome to the {self.server_name}, where we are answering trivia questions about NBA. \n"
-            counter = 1
-            for client in self.clients:
-                message += f"Player {counter} : {client[0]}\n"
-                counter += 1
-            message += f" == \n"
-            stat=random.choice(true_false)
-            message += f"True or False: {stat}\n"
+            if round== 1:
+                message = f"Welcome to the {self.server_name}, where we are answering trivia questions about NBA. \n"
+                counter = 1
+                for client in self.clients:
+                    message += f"Player {counter} : {client[0]}\n"
+                    counter += 1
+                message += f" == \n"
+                stat=random.choice(true_false)
+                message += f"True or False: {stat}\n"
+            else: # If it's not the first round
+                player_names = " and ".join(client[0] for client in self.clients)
+                message = f"Round {round}, played by {player_names}:\n"
+                stat = random.choice(true_false)
+                message += f"True or False: {stat}\n"
             print(message)
             # Send the welcome message to all clients
             threads = []
@@ -123,12 +158,12 @@ class TriviaServer:
                     self.correct_answers = []
                     #self.start_game()
                     break
-
             # If nobody answered correctly, or no one answered at all, choose another random question
             if not correct_answer:
                 print("No one answered correctly. Choosing another random question...")
                 self.correct_answers = []
                 #self.start_game()  # Start a new game
+            round += 1
         else:
             print("Game over! No players left.")
             for client_name, socket_obj in self.origin_clients:
@@ -136,22 +171,45 @@ class TriviaServer:
                 socket_obj.close()
                 print(f"Session for {client_name} closed successfully")
 
-    def handle_client_answer(self, conn,stat,client_name):
+    def handle_client_answer(self, conn, stat, client_name):
         try:
-            ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client
-            print(ans)
-            # check if the answer is correct
-            if (ans.lower()=="y" or ans.lower()=="t" or ans=="1" or ans.lower()=="f" or ans.lower()=="n" or ans=="0"):
-                if ((ans.lower() == "y" or ans.lower() == "t" or ans == "1")and stat in TRUE_STATEMENTS) or ((ans.lower() == "n" or ans.lower() == "f" or ans == "0")and stat in FALSE_STATEMENTS):
-                    print(f"{client_name} is correct !")
-                    self.correct_answers.append(client_name)
-
+            while True:
+                ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client
+                # Check if the answer is valid
+                if ans.lower() in ("y", "t", "1", "f", "n", "0"):
+                    if ((ans.lower() in ("y", "t", "1") and stat in TRUE_STATEMENTS) or
+                            (ans.lower() in ("n", "f", "0") and stat in FALSE_STATEMENTS)):
+                        print(f"{client_name} is correct!")
+                        self.correct_answers.append(client_name)
+                        break  # Exit the loop as the client gave a correct response
+                    else:
+                        print(f"{client_name} is incorrect!")
+                        break  # Exit the loop as the client gave an incorrect but valid response
                 else:
-                    print(f"{client_name} is incorrect !")
-
-            else:
-                print("invalid input")
-
+                    print("Invalid input. Please send 'T' or 'F'.")
+                    conn.sendall("Invalid input. Please send 'T' or 'F'.\n".encode('utf-8'))  # Prompt for correct input
         except Exception as e:
-            print(f"Error while receiving answer from client: {e}")
+            print(f"Error while receiving answer from {client_name}: {e}")
+            conn.close()  # Close connection on error
 
+    # def handle_client_answer(self, conn,stat,client_name):
+    #     try:
+    #         ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client
+    #         print(ans)
+    #         # check if the answer is correct
+    #         if (ans.lower()=="y" or ans.lower()=="t" or ans=="1" or ans.lower()=="f" or ans.lower()=="n" or ans=="0"):
+    #             if ((ans.lower() == "y" or ans.lower() == "t" or ans == "1")and stat in TRUE_STATEMENTS) or ((ans.lower() == "n" or ans.lower() == "f" or ans == "0")and stat in FALSE_STATEMENTS):
+    #                 print(f"{client_name} is correct !")
+    #                 self.correct_answers.append(client_name)
+    #
+    #             else:
+    #                 print(f"{client_name} is incorrect !")
+    #
+    #         else:
+    #             print("invalid input")
+    #
+    #     except Exception as e:
+    #         print(f"Error while receiving answer from client: {e}")
+
+
+# what we do for invalid inputf

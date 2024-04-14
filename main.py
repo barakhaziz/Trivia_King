@@ -7,7 +7,7 @@ if __name__ == "__main__":
     server = TriviaServer()
     server.start()
     # client = TriviaClient("barak")
-    # client.start()
+    # client.start()f
     for thread in threading.enumerate():
         if thread != threading.current_thread():
             thread.join()

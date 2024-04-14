@@ -8,12 +8,16 @@ import time
 
 UDP_PORT = 13117
 MAGIC_COOKIE = 0xabcddcba
-SERVER_ADDRESS = '0.0.0.0'  # This might need to be '0.0.0.0' if listening for broadcasts
-# SERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts
+SERVER_ADDRESS = '0.0.0.0'  # For listening for broadcasts
+
 class TriviaClient:
-    def __init__(self, name, is_bot=False):
-        self.name = name
-        self.is_bot = is_bot  # Flag to indicate if this client is a bot
+    def __init__(self, name=None, is_bot=False):
+        if is_bot:
+            self.name = "BOT_" + self.generate_random_name()
+        else:
+            self.name = name if name else "Client"
+
+        self.is_bot = is_bot
         self.tcp_socket = None
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -21,6 +25,11 @@ class TriviaClient:
         self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.running = True
+
+    def generate_random_name(self):
+        # Generate a random name from a list of names or by a random string
+        names = ['Alice', 'Bob', 'Charlie', 'David']
+        return random.choice(names)
 
     def start(self):
         print(f"Client {self.name} started, listening for offer requests...")
