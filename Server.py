@@ -37,7 +37,7 @@ class TriviaServer:
 
     def start(self):
         self.tcp_socket.listen(5)  # Listen for incoming connections
-        print(f"Server started, listening on IP address {self.udp_socket.getsockname()[0]}...")
+        print(f"Server started, listening on IP address {self.udp_socket.getsockname()[0]}...\n")
 
         threading.Thread(target=self.broadcast_message).start()
         threading.Thread(target=self.wait_for_clients).start()
@@ -73,7 +73,7 @@ class TriviaServer:
         team_name = conn.recv(1024).decode('utf-8').strip()
         self.clients.append((team_name, conn))  # Store client conn
         self.origin_clients.append((team_name, conn))
-        print(f"Team {team_name} connected from {addr[0]}")
+        print(f"Team {team_name} connected from {addr[0]}\n")
 
 
     def start_game(self):
@@ -99,8 +99,9 @@ class TriviaServer:
             for client in self.clients:
                 name, conn = client
                 try:
-                    print(f"send message to {client}")
-                    conn.sendall(f"{name}\n{message}".encode('utf-8'))  # Send the name and the message
+                    message_to_send = f"{name}\n{message}\n"  # Ensure each message ends with a newline
+                    conn.sendall(message_to_send.encode('utf-8'))  # Send the name and the message
+                    #threading.Thread(target=conn.sendall, args=(message_to_send.encode('utf-8'))).start()
                     # self.handle_client_answer(conn, stat, name)
                     thread = threading.Thread(target=self.handle_client_answer, args=(conn, stat, name))
                     thread.start()  # Start the thread without immediately joining it
