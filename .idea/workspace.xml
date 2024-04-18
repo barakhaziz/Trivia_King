@@ -4,9 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="add the following:&#10;1. logging server&#10;2. handle client crash handling during game">
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_09_04_2024_20_11_[Changes]/shelved.patch" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_09_04_2024_20_11__Changes_.xml" beforeDir="false" />
+    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection">
+      <change afterPath="$PROJECT_DIR$/server.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Trivia_King.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Trivia_King.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Client.py" beforeDir="false" afterPath="$PROJECT_DIR$/Client.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
@@ -39,32 +41,32 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
     "Python.main.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "master",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "editor.preferences.fonts.default",
+    "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="RunManager">
-    <configuration name="main" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Trivia_King" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.9 (CBG)" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="false" />
+      <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
@@ -98,9 +100,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1711453014273</updated>
-      <workItem from="1711453022637" duration="63148000" />
-      <workItem from="1712672879495" duration="12162000" />
-      <workItem from="1712754839966" duration="70135000" />
+      <workItem from="1711453022637" duration="78156000" />
     </task>
     <task id="LOCAL‎-00001" summary="hello_word">
       <option name="closed" value="true" />
@@ -142,39 +142,15 @@
       <option name="project" value="LOCAL‎" />
       <updated>1711812922038</updated>
     </task>
-    <task id="LOCAL-00006" summary="add multiple game iterations">
+    <task id="LOCAL‎-00006" summary="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection">
       <option name="closed" value="true" />
-      <created>1712764872913</created>
+      <created>1711815787403</created>
       <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1712764872913</updated>
+      <option name="presentableId" value="LOCAL‎-00006" />
+      <option name="project" value="LOCAL‎" />
+      <updated>1711815787403</updated>
     </task>
-    <task id="LOCAL-00007" summary="chnages">
-      <option name="closed" value="true" />
-      <created>1713103606992</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1713103606992</updated>
-    </task>
-    <task id="LOCAL-00008" summary="add the following:&#10;1. handling duplicate names&#10;2. handling invalid input&#10;3. BOT name generator&#10;4. update trivia questions">
-      <option name="closed" value="true" />
-      <created>1713111554217</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1713111554217</updated>
-    </task>
-    <task id="LOCAL-00009" summary="add the following:&#10;1. logging server&#10;2. handle client crash handling during game">
-      <option name="closed" value="true" />
-      <created>1713120311128</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1713120311128</updated>
-    </task>
-    <option name="localTasksCounter" value="10" />
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -192,18 +168,23 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="hello_word" />
     <MESSAGE value="client server basic udp" />
     <MESSAGE value="first TCP connection" />
     <MESSAGE value="starting the trivia game" />
-    <MESSAGE value="add multiple game iterations" />
-    <MESSAGE value="chnages" />
-    <MESSAGE value="add the following:&#10;1. handling duplicate names&#10;2. handling invalid input&#10;3. BOT name generator&#10;4. update trivia questions" />
-    <MESSAGE value="add the following:&#10;1. logging server&#10;2. handle client crash handling during game" />
-    <option name="LAST_COMMIT_MESSAGE" value="add the following:&#10;1. logging server&#10;2. handle client crash handling during game" />
+    <MESSAGE value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
+    <option name="LAST_COMMIT_MESSAGE" value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Client.py</url>
+          <line>106</line>
+          <option name="timeStamp" value="59" />
+        </line-breakpoint>
+      </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
           <properties notifyOnTerminate="true" exception="BaseException">
@@ -214,6 +195,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1713394529272" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1713450060352" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

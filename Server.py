@@ -10,7 +10,7 @@ UDP_PORT = 13117
 TCP_PORT = 5555
 MAGIC_COOKIE = 0xabcddcba
 #CLIENT_RESPONSE_TIMEOUT = 13  # in seconds
-GAME_DURATION = 15  # in seconds
+GAME_DURATION = 10  # in seconds
 WAIT_FOR_CLIENT_ANSWER_IN_ROUND= 10
 WAIT_FOR_2_CLIENTS_AT_LEAST = 25
 
@@ -63,6 +63,7 @@ class TriviaServer:
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.tcp_socket.bind(('0.0.0.0', TCP_PORT))
+        self.starting_port = TCP_PORT
 
 
 
@@ -79,7 +80,7 @@ class TriviaServer:
         while True:
             # UDP Broadcast the message to all devices on the network
             broadcast_address = ('<broadcast>', UDP_PORT)
-            message = struct.pack("!Ib32sH", MAGIC_COOKIE, 0x2, self.padded_server_name.encode('utf-8'), TCP_PORT)
+            message = struct.pack("!Ib32sH", MAGIC_COOKIE, 0x2, self.padded_server_name.encode('utf-8'), self.find_available_port())
             self.udp_socket.sendto(message, broadcast_address)
             # Sleep for a short duration to avoid flooding the network
             time.sleep(1)  # You can adjust the sleep duration as needed
@@ -89,7 +90,7 @@ class TriviaServer:
     def wait_for_clients(self):
         threads= []
         start_time = time.time()
-        # why we need to set timeout to Game duration
+        # every conected thread(client) start the 10 sec from the begining
         self.tcp_socket.settimeout(GAME_DURATION)
         while self.running:
             try:
@@ -320,10 +321,25 @@ class TriviaServer:
         logging.info("Game canceled due to insufficient players.")
         print("Game canceled due to insufficient players.")
 
+    def find_available_port(self,max_attempts=50):
+        for attempt in range(max_attempts):
+            try:
+                # Create a TCP/IP socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                # Try to bind the socket to the port
+                sock.bind(('localhost', self.starting_port + attempt))
+                # If successful, return the port number
+                return self.starting_port + attempt
+            except socket.error as e:
+                print(f"Port {self.starting_port + attempt} is in use.")
+            finally:
+                # Ensure that the socket is closed
+                sock.close()
+        raise Exception("Could not find an available port within the range.")
+
 # to complete:
-# 1. add a case that 5555 is already in use to choose another one or another functionality
+# 1. add a case that 5555 is already in use to choose another one or another functionality v
 # 2. handle a case of a client that disconnects in the middle of the game
-# 3. for each answer from the clients the server gets, reset the timer of 10seconds
 # 4. step 8 and 9 from the assignment
 # sub missions:
 # 1. fix bot behavior error handling
