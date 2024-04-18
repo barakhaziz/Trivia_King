@@ -68,13 +68,14 @@ class TriviaServer:
 
 
 
-    def start(self):
+    def start(self, start_time=time.time()):
+        self.running=True
         game_start_time = datetime.now()
         logging.info(f"Game started at {game_start_time}")
         self.tcp_socket.listen(5)  # Listen for incoming connections
         print(f"Server started, listening on IP address {self.udp_socket.getsockname()[0]}...\n")
         threading.Thread(target=self.broadcast_message).start()
-        threading.Thread(target=self.wait_for_clients).start()
+        threading.Thread(target=self.wait_for_clients(start_time)).start()
 
     def broadcast_message(self):
         while True:
@@ -82,14 +83,14 @@ class TriviaServer:
             broadcast_address = ('<broadcast>', UDP_PORT)
             message = struct.pack("!Ib32sH", MAGIC_COOKIE, 0x2, self.padded_server_name.encode('utf-8'), self.find_available_port())
             self.udp_socket.sendto(message, broadcast_address)
+            if not self.running:  # Add a condition to stop if server stops running
+                break
+            time.sleep(1)
             # Sleep for a short duration to avoid flooding the network
-            time.sleep(1)  # You can adjust the sleep duration as needed
 
-
-
-    def wait_for_clients(self):
+    def wait_for_clients(self, start_time=time.time()):
         threads= []
-        start_time = time.time()
+        #start_time = time.time()
         # every conected thread(client) start the 10 sec from the begining
         self.tcp_socket.settimeout(GAME_DURATION)
         while self.running:
@@ -102,11 +103,13 @@ class TriviaServer:
             except socket.timeout as e:
                 logging.error(f"Accepting new client timed out: {e}")
                 if time.time() - start_time >= GAME_DURATION and len(self.clients) >= 2:
-                    print("enter the game duration")
                     self.running = False
                     self.start_game()
-                if time.time() - start_time >= WAIT_FOR_2_CLIENTS_AT_LEAST and len(self.clients) == 1:
+                elif time.time() - start_time >= WAIT_FOR_2_CLIENTS_AT_LEAST and len(self.clients) == 1:
                     self.cancel_game_due_to_insufficient_players()
+            except Exception as e:
+                logging.error(f"An error occurred while accepting new connections: {e}")
+                print(f"An error occurred while accepting new connections: {e}")
 
     def handle_tcp_client(self, conn, addr):
         try:
@@ -141,7 +144,6 @@ class TriviaServer:
     def start_game(self):
         try:
             round = 1
-
             while len(self.clients) > 1:
                 self.get_answer = False
                 start_time = time.time()
@@ -149,6 +151,7 @@ class TriviaServer:
                 false_statement = random.choice(FALSE_STATEMENTS)
                 true_false = (true_statement, false_statement)
                 if round == 1:
+                    logging.info(f"Start new game at {datetime.now()}")
                     message = f"Welcome to the {self.server_name}, where we are answering trivia questions about NBA.\n"
                     counter = 1
                     for client in self.clients:
@@ -174,28 +177,32 @@ class TriviaServer:
                         thread.start()
                         threads.append(thread)
                     except Exception as e:
+                        logging.error(f"Error sending data to client {name}: {e}")
                         print(f"Error sending data to client {name}: {e}")
 
                 for thread in threads:
                     thread.join()
-
                 # Wait for client answers or timeout
                 time.sleep(GAME_DURATION)
-
                 if not self.get_answer:
+                    logging.info(f"No one answered at round {round}. Preparing another question...")
                     print("No one answered. Preparing another question...")
                     for name, conn in self.clients:
                         try:
+                            logging.info(f"sending message to client about no answer at {datetime.now()}")
                             conn.sendall("No one answered. Preparing another question....\n".encode('utf-8'))
                         except Exception as e:
+                            logging.error(f"Error notifying client {name}: {e}")
                             print(f"Error notifying client {name}: {e}")
 
                     # notify all inactive players to prevent clients disconnect from server - bug 1 fixec
                     for client in self.game_inactive_players:  # Ensure all inactive players get updated
                         name, conn = client
                         try:
+                            logging.info(f"sending demo message to inactive client {name} at {datetime.now()}")
                             conn.sendall(f"Round {round+1} but you are out of the game.\n".encode('utf-8'))
                         except Exception as e:
+                            logging.error(f"Error notifying inactive client {name}: {e}")
                             print(f"Error notifying inactive client {name}: {e}")
                     round += 1
                     continue
@@ -205,19 +212,23 @@ class TriviaServer:
 
 
                 if incorrect_clients and not correct_clients:  # If all answered incorrectly, do not remove them
+                    logging.info(f"All players answered incorrectly at round {round}. Preparing another question...")
                     print("All players answered incorrectly. Preparing another question...")
                     for name, conn in incorrect_clients:
                         try:
                             conn.sendall("Everyone was wrong. Let's try another question.\n".encode('utf-8'))
                         except Exception as e:
+                            logging.error(f"Error notifying client {name}: {e}")
                             print(f"Error notifying client {name}: {e}")
                     round+= 1
                     continue
                 else:  # Some players were correct, remove incorrect players
                     for name, conn in incorrect_clients:
                         try:
+                            logging.info(f"Sending message to client {name} about incorrect answer at {datetime.now()}")
                             conn.sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
                         except Exception as e:
+                            logging.info(f"Error notifying client {name}: {e}")
                             print(f"Error notifying client {name}: {e}")
 
                 self.clients = correct_clients  # Update the client list to only those who answered correctly
@@ -262,6 +273,17 @@ class TriviaServer:
                         #print(f"Closing session for {client_name}\n")
                         # add error handling in case of fail close
                         print(f"Session for {client_name} closed successfully")
+                for client in self.clients:
+                    client[1].close()  # Close each client's TCP connection
+                print("Game over, sending out offer requests...")
+                # init all the variables for the next game
+                self.game_inactive_players = []
+                self.origin_clients = []
+                self.clients = []
+                self.get_answer = False
+                self.running = False
+                #self.broadcast_message()  # Assume this method handles broadcasting
+                self.start(time.time())
         except Exception as e:
             logging.error("Unexpected error during game start: {}".format(e))
 
@@ -286,11 +308,11 @@ class TriviaServer:
                     if ((ans.lower() in ("y", "t", "1") and stat in TRUE_STATEMENTS) or
                             (ans.lower() in ("n", "f", "0") and stat in FALSE_STATEMENTS)):
                         print(f"{client_name} is correct!")
-                        logging.info(f"{client_name} is correct!")
+                        logging.info(f"{client_name} is correct with the answer of {ans}!")
                         self.correct_answers.append(client_name)
                         break  # Exit the loop as the client gave a correct response
                     else:
-                        logging.info(f"{client_name} is incorrect!")
+                        logging.info(f"{client_name} is incorrect the answer of {ans}!")
                         print(f"{client_name} is incorrect!")
                         break  # Exit the loop as the client gave an incorrect but valid response
                 else:
@@ -313,6 +335,7 @@ class TriviaServer:
         if self.clients:
             client_name, client_conn = self.clients[0]  # Correctly unpack the tuple
             try:
+                logging.info(f"Only one player connected, game canceled.")
                 client_conn.sendall("Only one player connected, game canceled.\n".encode('utf-8'))
                 client_conn.close()  # Use the connection object directly
             except Exception as e:
@@ -331,27 +354,32 @@ class TriviaServer:
                 # If successful, return the port number
                 return self.starting_port + attempt
             except socket.error as e:
+                logging.info(f"Port {self.starting_port + attempt} is in use. error info {e}")
                 print(f"Port {self.starting_port + attempt} is in use.")
             finally:
                 # Ensure that the socket is closed
                 sock.close()
+        logging.error("Could not find an available port within the range.")
         raise Exception("Could not find an available port within the range.")
 
 # to complete:
-# 1. add a case that 5555 is already in use to choose another one or another functionality v
 # 2. handle a case of a client that disconnects in the middle of the game
-# 4. step 8 and 9 from the assignment
+# 5. handle case how to handle a player that didnt answer in a current round
 # sub missions:
 # 1. fix bot behavior error handling
 # 2. test error handling: data corruption and empty message
 # 3. add more logging
 
+# bugs
+# 1. wait 20seconds and not 10sec before telling players that no one answered
+
 # mechanisms:
 # 1. if no answer from the server, the client has timeout of SERVER_NO_RESPONSE_TIMEOUT
 # 2. if only one player is connected, the server will wait WAIT_FOR_2_CLIENTS_AT_LEAST and then cancel the game
 
-# 1.1 send message to the client that the game is canceled - bug 1 fixed
-# 3.1 fix bot generating T,F if already deleted from the game - bug 2 fixed
+# 1 send message to the client that the game is canceled - bug 1 fixed
+# 2 fix bot generating T,F if already deleted from the game - bug 2 fixed
+# 3. if port 5555 is taken, the server will try to bind to the next available port
 
 
 

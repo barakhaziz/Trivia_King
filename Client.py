@@ -60,6 +60,9 @@ class TriviaClient:
                 print(f"Error while listening for offers: {e}")
 
     def connect_to_server(self, server_addr):
+        if self.tcp_socket is None:  # Check if the socket needs to be reinitialized
+            self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.tcp_socket.settimeout(SERVER_NO_RESPONSE_TIMEOUT)  # Set timeout for response
         try:
             self.tcp_socket.connect(server_addr)
             # set timeout for client is doesnt receive any response from the server
@@ -71,8 +74,12 @@ class TriviaClient:
                 threading.Thread(target=self.receive_server_data).start()
         except socket.error as e:
             print(f"Connection failed: {e}")
+            self.tcp_socket.close()  # Properly close the socket on failure to connect
+            self.tcp_socket = None  # Reset the socket to None after closing
         except Exception as e:
             print(f"Error connecting to server: {e}")
+            self.tcp_socket.close()  # Ensure the socket is closed on error
+            self.tcp_socket = None  # Reset the socket to None after closing
             sys.exit(1)
 
     def receive_server_data(self):
@@ -148,9 +155,17 @@ class TriviaClient:
                 break
 
     def close_connection(self):
+        print("Server disconnected, listening for offer requests...")
         self.running = False
         self.tcp_socket.close()
-        print("Disconnected from server")
+        self.tcp_socket = None  # Reset the socket
+        self.running = True
+        self.listen_to_broadcast()  # Restart listening for UDP broadcasts
+
+    # def close_connection(self):
+    #     self.running = False
+    #     self.tcp_socket.close()
+    #     print("Disconnected from server")
 
 
 
