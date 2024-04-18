@@ -363,12 +363,20 @@ class TriviaServer:
         raise Exception("Could not find an available port within the range.")
 
 # to complete:
-# 2. handle a case of a client that disconnects in the middle of the game
-# 5. handle case how to handle a player that didnt answer in a current round
+# 1. handle a case of a client that disconnects in the middle of the game due to network error
+# 2. handle case how to handle a player that didnt answer in a current round
+# 3. fix bugs
+# 4. consider to change the choose port 5555 function
+# 5. verify the busy wait
 # sub missions:
 # 1. fix bot behavior error handling
 # 2. test error handling: data corruption and empty message
-# 3. add more logging
+# 3. add more logging - V
+# 4. add more comments -
+# 5. add more exception handling -
+# 6. add more print statements/delete unnecessary prints -
+# 7. details about our mechanisms for each case
+
 
 # bugs
 # 1. wait 20seconds and not 10sec before telling players that no one answered
@@ -377,9 +385,12 @@ class TriviaServer:
 # 1. if no answer from the server, the client has timeout of SERVER_NO_RESPONSE_TIMEOUT
 # 2. if only one player is connected, the server will wait WAIT_FOR_2_CLIENTS_AT_LEAST and then cancel the game
 
+# Done
 # 1 send message to the client that the game is canceled - bug 1 fixed
 # 2 fix bot generating T,F if already deleted from the game - bug 2 fixed
 # 3. if port 5555 is taken, the server will try to bind to the next available port
+# 4. step 8 from the assignment - send broadcast only or ready to play game again? now the server ready start game again and send broadcast
+# 5. step 9 from the assignment
 
 
 
