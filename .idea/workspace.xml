@@ -4,11 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session">
-      <change afterPath="$PROJECT_DIR$/old/Client.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/old/Server.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/old/main.py" afterDir="false" />
+    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="add more tasks">
+      <change afterPath="$PROJECT_DIR$/7 bot clients.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server.log" beforeDir="false" afterPath="$PROJECT_DIR$/server.log" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -164,7 +164,15 @@
       <option name="project" value="LOCAL" />
       <updated>1713541653885</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="add more tasks">
+      <option name="closed" value="true" />
+      <created>1713542785107</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1713542785107</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -190,7 +198,8 @@
     <MESSAGE value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
     <MESSAGE value="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment" />
     <MESSAGE value="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session" />
-    <option name="LAST_COMMIT_MESSAGE" value="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session" />
+    <MESSAGE value="add more tasks" />
+    <option name="LAST_COMMIT_MESSAGE" value="add more tasks" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -211,6 +220,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1713541432966" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1713546437766" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

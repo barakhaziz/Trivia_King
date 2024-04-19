@@ -10,7 +10,7 @@ UDP_PORT = 13117
 TCP_PORT = 5555
 MAGIC_COOKIE = 0xabcddcba
 #CLIENT_RESPONSE_TIMEOUT = 13  # in seconds
-GAME_DURATION = 15  # in seconds
+GAME_DURATION = 10  # in seconds
 WAIT_FOR_CLIENT_ANSWER_IN_ROUND= 10
 WAIT_FOR_2_CLIENTS_AT_LEAST = 25
 
@@ -158,9 +158,7 @@ class TriviaServer:
         try:
             round = 1
             while len(self.clients) > 1:
-                print(len(self.clients))
                 self.get_answer = False
-                start_time = time.time()
                 true_statement = random.choice(TRUE_STATEMENTS)
                 false_statement = random.choice(FALSE_STATEMENTS)
                 true_false = (true_statement, false_statement)
@@ -243,9 +241,14 @@ class TriviaServer:
                 print(f"client which didnt answer: {self.clients_didnt_answer}")
                 self.game_inactive_players.extend(incorrect_clients)
 
+                if len(incorrect_clients) == 1 and len(correct_clients) == 0 and len(self.clients_didnt_answer) + len(incorrect_clients) == len(self.clients):
+                    incorrect_clients[0][1].sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
+                    self.clients=[]
+                    continue
+
                 # case 3: all players answered incorrectly
                 # behavior: notify all players that all answered incorrectly and prepare another question
-                if incorrect_clients and not correct_clients:  # If all answered incorrectly, do not remove them
+                if incorrect_clients and not correct_clients and len(incorrect_clients) > 1:  # If all answered incorrectly, do not remove them
                     logging.info(f"All players answered incorrectly at round {round}. Preparing another question...")
                     print("All players answered incorrectly. Preparing another question...")
                     for name, conn in incorrect_clients:
@@ -267,6 +270,8 @@ class TriviaServer:
                         except Exception as e:
                             logging.info(f"Error notifying client - case3 {name}: {e}")
                             print(f"Error notifying client- case3 {name}: {e}")
+
+
 
                 self.clients = correct_clients  # Update the client list to only those who answered correctly
 
@@ -429,7 +434,7 @@ class TriviaServer:
 # 3. the client print wired messages: getting 2 broadcast from 2 servers although its the same server(different ips)
 
 # server bugs:
-# 1. handle case of game over: only one player answer incorrectly and the other didn't answer - Amit
+# 1. FIXED! handle case of game over: only one player answer incorrectly and the other didn't answer - Amit
 
 # Nice to have\to consider - please work only if all the bugs are fixed:
 # 1. handle case where before game start, the client connect and then disconnect due to network error

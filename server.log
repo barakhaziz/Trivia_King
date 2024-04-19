@@ -9,3 +9,411 @@
 2024-04-19 18:44:26,306:INFO:Only one player connected, game canceled.
 2024-04-19 18:44:26,306:ERROR:Error closing connection for barak: [WinError 10054] An existing connection was forcibly closed by the remote host
 2024-04-19 18:44:26,308:INFO:Game canceled due to insufficient players.
+2024-04-19 19:41:11,268:INFO:Game started at 2024-04-19 19:41:11.268750
+2024-04-19 19:41:11,274:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:41:11,275:INFO:Team barak connected from 192.168.1.3
+2024-04-19 19:41:12,284:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:41:12,285:INFO:Team oded connected from 192.168.1.3
+2024-04-19 19:41:28,303:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:41:28,303:INFO:Start new game at 2024-04-19 19:41:28.303737
+2024-04-19 19:41:28,303:INFO:The asked question of round 1 is The New York Knicks won the NBA Championship in 2012.
+2024-04-19 19:41:38,258:INFO:Received answer 'f' from oded at 2024-04-19 19:41:38.258627
+2024-04-19 19:41:38,258:INFO:oded is correct with the answer of f!
+2024-04-19 19:41:43,309:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:41:43,310:INFO:Sending message to client barak about no answer at 2024-04-19 19:41:43.310612
+2024-04-19 19:41:43,312:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:41:43,312:INFO:Game over!
+Congratulations to the winner: oded.
+
+2024-04-19 19:41:43,313:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:41:43,313:INFO:Game started at 2024-04-19 19:41:43.313615
+2024-04-19 19:41:44,322:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:41:44,322:INFO:Team barak connected from 192.168.1.3
+2024-04-19 19:41:45,324:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:41:45,326:INFO:Team oded connected from 192.168.1.3
+2024-04-19 19:41:50,381:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:41:50,382:WARNING:Duplicate name attempt from 192.168.80.1 denied.
+2024-04-19 19:41:51,390:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:41:51,391:WARNING:Duplicate name attempt from 192.168.80.1 denied.
+2024-04-19 19:41:52,408:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:41:52,420:WARNING:Duplicate name attempt from 192.168.80.1 denied.
+2024-04-19 19:41:53,430:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:41:53,445:WARNING:Duplicate name attempt from 192.168.80.1 denied.
+2024-04-19 19:42:06,827:INFO:Game started at 2024-04-19 19:42:06.826613
+2024-04-19 19:42:06,833:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:42:06,833:INFO:Team barak connected from 192.168.1.3
+2024-04-19 19:42:07,840:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:42:07,844:INFO:Team oded connected from 192.168.1.3
+2024-04-19 19:42:18,866:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:42:18,866:INFO:Start new game at 2024-04-19 19:42:18.866663
+2024-04-19 19:42:18,866:INFO:The asked question of round 1 is The Miami Heat was established in 1970.
+2024-04-19 19:42:22,831:INFO:Received answer 'f' from oded at 2024-04-19 19:42:22.831813
+2024-04-19 19:42:22,831:INFO:oded is correct with the answer of f!
+2024-04-19 19:42:27,849:INFO:Received answer 'f' from barak at 2024-04-19 19:42:27.849986
+2024-04-19 19:42:27,849:INFO:barak is correct with the answer of f!
+2024-04-19 19:42:27,850:INFO:Start new game at 2024-04-19 19:42:27.850982
+2024-04-19 19:42:27,850:INFO:The asked question of round 1 is LeBron James has never won an NBA MVP award.
+2024-04-19 19:42:34,266:INFO:Received answer 'f' from barak at 2024-04-19 19:42:34.266615
+2024-04-19 19:42:34,266:INFO:barak is correct with the answer of f!
+2024-04-19 19:42:37,704:INFO:Received answer 't' from oded at 2024-04-19 19:42:37.704799
+2024-04-19 19:42:37,704:INFO:oded is incorrect the answer of t!
+2024-04-19 19:42:37,705:INFO:Start new game at 2024-04-19 19:42:37.705798
+2024-04-19 19:42:37,705:INFO:The asked question of round 1 is Shaquille O'Neal won his first NBA championship in 2000.
+2024-04-19 19:42:47,721:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:42:47,722:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:42:47,722:INFO:No one answered at round 1. Preparing another question...
+2024-04-19 19:42:47,722:INFO:sending message to client about no answer at 2024-04-19 19:42:47.722791
+2024-04-19 19:42:47,723:INFO:sending message to client about no answer at 2024-04-19 19:42:47.723791
+2024-04-19 19:42:47,724:INFO:The asked question of round 2 is Tim Duncan won five NBA championships with the San Antonio Spurs.
+2024-04-19 19:42:49,713:ERROR:Error while receiving answer from oded: [WinError 10054] An existing connection was forcibly closed by the remote host
+2024-04-19 19:42:49,713:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:42:50,320:ERROR:Error while receiving answer from barak: [WinError 10054] An existing connection was forcibly closed by the remote host
+2024-04-19 19:42:50,320:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:42:50,320:INFO:Sending message to client barak about no answer at 2024-04-19 19:42:50.320721
+2024-04-19 19:42:50,320:ERROR:Client barak disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket
+2024-04-19 19:42:50,320:INFO:Sending message to client oded about no answer at 2024-04-19 19:42:50.320721
+2024-04-19 19:42:50,321:ERROR:Client oded disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket
+2024-04-19 19:42:50,321:INFO:Game over! No winner.
+
+2024-04-19 19:42:50,321:INFO:Game started at 2024-04-19 19:42:50.321721
+2024-04-19 19:43:00,333:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:43:10,347:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:43:20,355:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:43:33,756:INFO:Game started at 2024-04-19 19:43:33.756641
+2024-04-19 19:43:33,764:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:43:33,764:INFO:Team oded connected from 192.168.1.3
+2024-04-19 19:43:34,764:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:43:34,765:INFO:Team barak connected from 192.168.1.3
+2024-04-19 19:43:45,783:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:43:45,783:INFO:Start new game at 2024-04-19 19:43:45.783730
+2024-04-19 19:43:45,784:INFO:The asked question of round 1 is Tim Duncan won five NBA championships with the San Antonio Spurs.
+2024-04-19 19:43:47,674:INFO:Received answer 'f' from barak at 2024-04-19 19:43:47.674427
+2024-04-19 19:43:47,674:INFO:barak is incorrect the answer of f!
+2024-04-19 19:43:49,657:INFO:Received answer 't' from oded at 2024-04-19 19:43:49.657903
+2024-04-19 19:43:49,657:INFO:oded is correct with the answer of t!
+2024-04-19 19:43:49,657:INFO:Sending message to client barak about incorrect answer at 2024-04-19 19:43:49.657903
+2024-04-19 19:43:49,658:INFO:Game over!
+Congratulations to the winner: oded.
+
+2024-04-19 19:43:49,658:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:43:49,658:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:43:49,658:INFO:Game started at 2024-04-19 19:43:49.658906
+2024-04-19 19:43:50,679:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:43:50,681:INFO:Team oded connected from 192.168.1.3
+2024-04-19 19:43:51,684:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:43:51,685:INFO:Team barak connected from 192.168.1.3
+2024-04-19 19:44:02,710:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:44:02,711:INFO:Start new game at 2024-04-19 19:44:02.710152
+2024-04-19 19:44:02,711:INFO:The asked question of round 1 is The Golden State Warriors broke the record for the most wins in a season in 2016.
+2024-04-19 19:44:04,638:INFO:Received answer 'f' from oded at 2024-04-19 19:44:04.638059
+2024-04-19 19:44:04,638:INFO:oded is incorrect the answer of f!
+2024-04-19 19:44:12,726:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:44:12,726:INFO:Sending message to client barak about no answer at 2024-04-19 19:44:12.726702
+2024-04-19 19:44:12,727:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:44:12,727:INFO:All players answered incorrectly at round 1. Preparing another question...
+2024-04-19 19:44:12,727:INFO:Game over!
+Congratulations to the winner: oded.
+
+2024-04-19 19:44:12,728:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:44:12,728:INFO:Game started at 2024-04-19 19:44:12.728222
+2024-04-19 19:44:13,744:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:44:13,745:INFO:Team barak connected from 192.168.80.1
+2024-04-19 19:44:14,753:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:44:14,754:INFO:Team oded connected from 192.168.80.1
+2024-04-19 19:44:25,770:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:44:25,770:INFO:Start new game at 2024-04-19 19:44:25.770434
+2024-04-19 19:44:25,770:INFO:The asked question of round 1 is Michael Jordan was drafted by the Portland Trail Blazers.
+2024-04-19 19:44:35,771:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:44:35,786:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:45:43,859:INFO:Game started at 2024-04-19 19:45:43.859738
+2024-04-19 19:45:46,884:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:45:46,885:INFO:Team barak connected from 192.168.80.1
+2024-04-19 19:45:49,901:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:45:49,903:INFO:Team oded connected from 192.168.80.1
+2024-04-19 19:46:00,923:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:46:00,923:INFO:Start new game at 2024-04-19 19:46:00.923084
+2024-04-19 19:46:00,923:INFO:The asked question of round 1 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
+2024-04-19 19:46:05,023:INFO:Received answer 'f' from oded at 2024-04-19 19:46:05.023931
+2024-04-19 19:46:05,024:INFO:oded is correct with the answer of f!
+2024-04-19 19:46:10,930:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:46:10,930:INFO:Sending message to client barak about no answer at 2024-04-19 19:46:10.930800
+2024-04-19 19:46:10,930:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:46:10,930:INFO:Game over!
+Congratulations to the winner: oded.
+
+2024-04-19 19:46:10,932:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:46:10,932:INFO:Game started at 2024-04-19 19:46:10.932264
+2024-04-19 19:46:11,940:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:46:11,941:INFO:Team barak connected from 192.168.1.3
+2024-04-19 19:46:12,954:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:46:12,954:INFO:Team oded connected from 192.168.1.3
+2024-04-19 19:46:23,962:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:46:23,962:INFO:Start new game at 2024-04-19 19:46:23.962496
+2024-04-19 19:46:23,962:INFO:The asked question of round 1 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
+2024-04-19 19:46:33,972:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:46:33,973:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:46:33,973:INFO:No one answered at round 1. Preparing another question...
+2024-04-19 19:46:33,973:INFO:sending message to client about no answer at 2024-04-19 19:46:33.973180
+2024-04-19 19:46:33,974:INFO:sending message to client about no answer at 2024-04-19 19:46:33.974184
+2024-04-19 19:46:33,974:INFO:The asked question of round 2 is Kareem Abdul-Jabbar scored 100 points in a single NBA game.
+2024-04-19 19:46:38,146:INFO:Received answer 't' from oded at 2024-04-19 19:46:38.146423
+2024-04-19 19:46:38,146:INFO:oded is incorrect the answer of t!
+2024-04-19 19:46:43,977:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:46:43,978:INFO:Sending message to client barak about no answer at 2024-04-19 19:46:43.978512
+2024-04-19 19:46:43,979:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:46:43,980:INFO:All players answered incorrectly at round 2. Preparing another question...
+2024-04-19 19:46:43,980:INFO:Game over!
+Congratulations to the winner: oded.
+
+2024-04-19 19:46:43,981:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:46:43,981:INFO:Game started at 2024-04-19 19:46:43.981760
+2024-04-19 19:46:45,002:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:46:45,003:INFO:Team barak connected from 192.168.80.1
+2024-04-19 19:46:46,009:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:46:46,009:INFO:Team oded connected from 192.168.80.1
+2024-04-19 19:56:39,126:INFO:Game started at 2024-04-19 19:56:39.126536
+2024-04-19 19:56:45,184:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:56:45,185:INFO:Team oded connected from 192.168.80.1
+2024-04-19 19:56:47,192:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:56:47,192:INFO:Team barak connected from 192.168.1.3
+2024-04-19 19:56:58,198:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:56:58,199:INFO:Start new game at 2024-04-19 19:56:58.199219
+2024-04-19 19:56:58,199:INFO:The asked question of round 1 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
+2024-04-19 19:57:02,649:INFO:Received answer 'f' from barak at 2024-04-19 19:57:02.649758
+2024-04-19 19:57:02,649:INFO:barak is correct with the answer of f!
+2024-04-19 19:57:08,208:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:57:08,209:INFO:Sending message to client oded about no answer at 2024-04-19 19:57:08.209408
+2024-04-19 19:57:08,210:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:57:08,211:INFO:Game over!
+Congratulations to the winner: barak.
+
+2024-04-19 19:57:08,212:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:57:08,213:INFO:Game started at 2024-04-19 19:57:08.213375
+2024-04-19 19:57:09,230:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:57:09,231:INFO:Team barak connected from 192.168.80.1
+2024-04-19 19:57:10,235:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:57:10,235:INFO:Team oded connected from 192.168.80.1
+2024-04-19 19:57:21,240:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:57:21,240:INFO:Start new game at 2024-04-19 19:57:21.240577
+2024-04-19 19:57:21,240:INFO:The asked question of round 1 is Michael Jordan won 6 NBA championships.
+2024-04-19 19:57:24,520:INFO:Received answer 'f' from oded at 2024-04-19 19:57:24.519013
+2024-04-19 19:57:24,520:INFO:oded is incorrect the answer of f!
+2024-04-19 19:57:31,260:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:57:31,261:INFO:Sending message to client barak about no answer at 2024-04-19 19:57:31.261249
+2024-04-19 19:57:31,263:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:57:31,263:INFO:Sending message to client oded about incorrect answer at 2024-04-19 19:57:31.263244
+2024-04-19 19:57:31,264:INFO:Game over! No winner.
+
+2024-04-19 19:57:31,264:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:57:31,265:INFO:Game started at 2024-04-19 19:57:31.265245
+2024-04-19 19:57:32,279:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:57:32,292:INFO:Team barak connected from 192.168.80.1
+2024-04-19 19:57:33,295:INFO:New client 192.168.1.3 connected.
+2024-04-19 19:57:33,295:INFO:Team oded connected from 192.168.1.3
+2024-04-19 19:57:44,312:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:57:44,313:INFO:Start new game at 2024-04-19 19:57:44.312685
+2024-04-19 19:57:44,313:INFO:The asked question of round 1 is The Golden State Warriors broke the record for the most wins in a season in 2016.
+2024-04-19 19:57:54,321:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:57:54,322:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:57:54,323:INFO:No one answered at round 1. Preparing another question...
+2024-04-19 19:57:54,323:INFO:sending message to client about no answer at 2024-04-19 19:57:54.323143
+2024-04-19 19:57:54,324:INFO:sending message to client about no answer at 2024-04-19 19:57:54.324142
+2024-04-19 19:57:54,324:INFO:The asked question of round 2 is LeBron James was drafted first overall in 2003.
+2024-04-19 19:58:04,330:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:58:04,345:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:58:04,345:INFO:No one answered at round 2. Preparing another question...
+2024-04-19 19:58:04,346:INFO:sending message to client about no answer at 2024-04-19 19:58:04.346818
+2024-04-19 19:58:04,346:INFO:sending message to client about no answer at 2024-04-19 19:58:04.346818
+2024-04-19 19:58:04,346:INFO:The asked question of round 3 is Michael Jordan was drafted by the Portland Trail Blazers.
+2024-04-19 19:58:14,352:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:58:14,352:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:58:14,353:INFO:No one answered at round 3. Preparing another question...
+2024-04-19 19:58:14,354:INFO:sending message to client about no answer at 2024-04-19 19:58:14.354356
+2024-04-19 19:58:14,354:INFO:sending message to client about no answer at 2024-04-19 19:58:14.354356
+2024-04-19 19:58:14,355:INFO:The asked question of round 4 is The Detroit Pistons have never won an NBA championship.
+2024-04-19 19:58:24,363:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:58:24,363:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:58:24,363:INFO:No one answered at round 4. Preparing another question...
+2024-04-19 19:58:24,364:INFO:sending message to client about no answer at 2024-04-19 19:58:24.364718
+2024-04-19 19:58:24,364:INFO:sending message to client about no answer at 2024-04-19 19:58:24.364718
+2024-04-19 19:58:24,364:INFO:The asked question of round 5 is The Boston Celtics have the most NBA championships.
+2024-04-19 19:58:31,814:ERROR:Error while receiving answer from barak: [WinError 10054] An existing connection was forcibly closed by the remote host
+2024-04-19 19:58:31,815:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 19:58:33,307:ERROR:Error while receiving answer from oded: [WinError 10054] An existing connection was forcibly closed by the remote host
+2024-04-19 19:58:33,308:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 19:58:33,308:INFO:Sending message to client barak about no answer at 2024-04-19 19:58:33.308279
+2024-04-19 19:58:33,309:ERROR:Client barak disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket
+2024-04-19 19:58:33,309:INFO:Sending message to client oded about no answer at 2024-04-19 19:58:33.309300
+2024-04-19 19:58:33,309:ERROR:Client oded disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket
+2024-04-19 19:58:33,309:INFO:Game over! No winner.
+
+2024-04-19 19:58:33,309:INFO:Game started at 2024-04-19 19:58:33.309300
+2024-04-19 19:58:37,355:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:58:37,356:INFO:Team oded connected from 192.168.80.1
+2024-04-19 19:58:51,962:INFO:Game started at 2024-04-19 19:58:51.962899
+2024-04-19 19:58:54,998:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:58:54,998:INFO:Team oded connected from 192.168.80.1
+2024-04-19 19:58:58,036:INFO:New client 192.168.80.1 connected.
+2024-04-19 19:58:58,036:INFO:Team barak connected from 192.168.80.1
+2024-04-19 19:59:09,052:ERROR:Accepting new client timed out: timed out
+2024-04-19 19:59:09,054:INFO:Start new game at 2024-04-19 19:59:09.054046
+2024-04-19 19:59:09,054:INFO:The asked question of round 1 is The Detroit Pistons have never won an NBA championship.
+2024-04-19 19:59:19,068:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:59:19,069:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:59:19,069:INFO:No one answered at round 1. Preparing another question...
+2024-04-19 19:59:19,070:INFO:sending message to client about no answer at 2024-04-19 19:59:19.070129
+2024-04-19 19:59:19,070:INFO:sending message to client about no answer at 2024-04-19 19:59:19.070129
+2024-04-19 19:59:19,070:INFO:The asked question of round 2 is The Toronto Raptors won their first NBA Championship in 2019.
+2024-04-19 19:59:29,078:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:59:29,078:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:59:29,079:INFO:No one answered at round 2. Preparing another question...
+2024-04-19 19:59:29,080:INFO:sending message to client about no answer at 2024-04-19 19:59:29.080204
+2024-04-19 19:59:29,080:INFO:sending message to client about no answer at 2024-04-19 19:59:29.080204
+2024-04-19 19:59:29,081:INFO:The asked question of round 3 is Michael Jordan won 6 NBA championships.
+2024-04-19 19:59:39,087:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:59:39,088:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:59:39,088:INFO:No one answered at round 3. Preparing another question...
+2024-04-19 19:59:39,088:INFO:sending message to client about no answer at 2024-04-19 19:59:39.088213
+2024-04-19 19:59:39,089:INFO:sending message to client about no answer at 2024-04-19 19:59:39.089389
+2024-04-19 19:59:39,090:INFO:The asked question of round 4 is Shaquille O'Neal won his first NBA championship in 2000.
+2024-04-19 19:59:49,093:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:59:49,094:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:59:49,095:INFO:No one answered at round 4. Preparing another question...
+2024-04-19 19:59:49,095:INFO:sending message to client about no answer at 2024-04-19 19:59:49.095050
+2024-04-19 19:59:49,096:INFO:sending message to client about no answer at 2024-04-19 19:59:49.096073
+2024-04-19 19:59:49,096:INFO:The asked question of round 5 is The Los Angeles Lakers have won 17 NBA championships.
+2024-04-19 19:59:59,100:INFO:Timeout occurred for oded, no response received.
+2024-04-19 19:59:59,101:INFO:Timeout occurred for barak, no response received.
+2024-04-19 19:59:59,102:INFO:No one answered at round 5. Preparing another question...
+2024-04-19 19:59:59,102:INFO:sending message to client about no answer at 2024-04-19 19:59:59.102074
+2024-04-19 19:59:59,103:INFO:sending message to client about no answer at 2024-04-19 19:59:59.103176
+2024-04-19 19:59:59,103:INFO:The asked question of round 6 is The Golden State Warriors broke the record for the most wins in a season in 2016.
+2024-04-19 20:00:09,115:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:00:09,115:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:00:09,116:INFO:No one answered at round 6. Preparing another question...
+2024-04-19 20:00:09,116:INFO:sending message to client about no answer at 2024-04-19 20:00:09.116213
+2024-04-19 20:00:09,116:INFO:sending message to client about no answer at 2024-04-19 20:00:09.116213
+2024-04-19 20:00:09,117:INFO:The asked question of round 7 is LeBron James was drafted first overall in 2003.
+2024-04-19 20:00:19,128:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:00:19,128:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:00:19,128:INFO:No one answered at round 7. Preparing another question...
+2024-04-19 20:00:19,129:INFO:sending message to client about no answer at 2024-04-19 20:00:19.129176
+2024-04-19 20:00:19,129:INFO:sending message to client about no answer at 2024-04-19 20:00:19.129176
+2024-04-19 20:00:19,129:INFO:The asked question of round 8 is Shaquille O'Neal won his first NBA championship in 2000.
+2024-04-19 20:00:29,131:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:00:29,146:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:00:29,146:INFO:No one answered at round 8. Preparing another question...
+2024-04-19 20:00:29,147:INFO:sending message to client about no answer at 2024-04-19 20:00:29.147048
+2024-04-19 20:00:29,148:INFO:sending message to client about no answer at 2024-04-19 20:00:29.148052
+2024-04-19 20:00:29,151:INFO:The asked question of round 9 is Allen Iverson won two NBA championships.
+2024-04-19 20:00:39,163:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:00:39,163:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:00:39,163:INFO:No one answered at round 9. Preparing another question...
+2024-04-19 20:00:39,164:INFO:sending message to client about no answer at 2024-04-19 20:00:39.164497
+2024-04-19 20:00:39,164:INFO:sending message to client about no answer at 2024-04-19 20:00:39.164497
+2024-04-19 20:00:39,164:INFO:The asked question of round 10 is The New York Knicks won the NBA Championship in 2012.
+2024-04-19 20:00:49,181:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:00:49,182:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:00:49,183:INFO:No one answered at round 10. Preparing another question...
+2024-04-19 20:00:49,183:INFO:sending message to client about no answer at 2024-04-19 20:00:49.183294
+2024-04-19 20:00:49,184:INFO:sending message to client about no answer at 2024-04-19 20:00:49.184293
+2024-04-19 20:00:49,185:INFO:The asked question of round 11 is The Los Angeles Lakers have won 17 NBA championships.
+2024-04-19 20:00:59,194:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:00:59,194:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:00:59,196:INFO:No one answered at round 11. Preparing another question...
+2024-04-19 20:00:59,196:INFO:sending message to client about no answer at 2024-04-19 20:00:59.196133
+2024-04-19 20:00:59,196:INFO:sending message to client about no answer at 2024-04-19 20:00:59.196133
+2024-04-19 20:00:59,196:INFO:The asked question of round 12 is The Boston Celtics have the most NBA championships.
+2024-04-19 20:01:09,211:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:01:09,211:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:01:09,212:INFO:No one answered at round 12. Preparing another question...
+2024-04-19 20:01:09,212:INFO:sending message to client about no answer at 2024-04-19 20:01:09.212237
+2024-04-19 20:01:09,212:INFO:sending message to client about no answer at 2024-04-19 20:01:09.212237
+2024-04-19 20:01:09,213:INFO:The asked question of round 13 is Tim Duncan won five NBA championships with the San Antonio Spurs.
+2024-04-19 20:01:19,226:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:01:19,226:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:01:19,227:INFO:No one answered at round 13. Preparing another question...
+2024-04-19 20:01:19,227:INFO:sending message to client about no answer at 2024-04-19 20:01:19.227904
+2024-04-19 20:01:19,228:INFO:sending message to client about no answer at 2024-04-19 20:01:19.228904
+2024-04-19 20:01:19,228:INFO:The asked question of round 14 is LeBron James has never won an NBA MVP award.
+2024-04-19 20:01:29,244:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:01:29,244:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:01:29,245:INFO:No one answered at round 14. Preparing another question...
+2024-04-19 20:01:29,245:INFO:sending message to client about no answer at 2024-04-19 20:01:29.245712
+2024-04-19 20:01:29,246:INFO:sending message to client about no answer at 2024-04-19 20:01:29.245712
+2024-04-19 20:01:29,246:INFO:The asked question of round 15 is The Toronto Raptors won their first NBA Championship in 2019.
+2024-04-19 20:01:39,262:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:01:39,263:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:01:39,264:INFO:No one answered at round 15. Preparing another question...
+2024-04-19 20:01:39,265:INFO:sending message to client about no answer at 2024-04-19 20:01:39.264279
+2024-04-19 20:01:39,266:INFO:sending message to client about no answer at 2024-04-19 20:01:39.265304
+2024-04-19 20:01:39,266:INFO:The asked question of round 16 is Allen Iverson won two NBA championships.
+2024-04-19 20:01:49,276:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:01:49,277:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:01:49,278:INFO:No one answered at round 16. Preparing another question...
+2024-04-19 20:01:49,279:INFO:sending message to client about no answer at 2024-04-19 20:01:49.279373
+2024-04-19 20:01:49,279:INFO:sending message to client about no answer at 2024-04-19 20:01:49.279886
+2024-04-19 20:01:49,283:INFO:The asked question of round 17 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
+2024-04-19 20:01:53,384:ERROR:Error while receiving answer from barak: [WinError 10054] An existing connection was forcibly closed by the remote host
+2024-04-19 20:01:53,384:INFO:Disconnected: barak has been removed from the game.
+2024-04-19 20:01:56,985:ERROR:Error while receiving answer from oded: [WinError 10054] An existing connection was forcibly closed by the remote host
+2024-04-19 20:01:56,985:INFO:Disconnected: oded has been removed from the game.
+2024-04-19 20:07:07,262:INFO:Game started at 2024-04-19 20:07:07.262450
+2024-04-19 20:07:17,864:INFO:Game started at 2024-04-19 20:07:17.864015
+2024-04-19 20:07:23,911:INFO:New client 192.168.80.1 connected.
+2024-04-19 20:07:23,911:INFO:Team oded connected from 192.168.80.1
+2024-04-19 20:07:25,937:INFO:New client 192.168.80.1 connected.
+2024-04-19 20:07:25,938:INFO:Team barak connected from 192.168.80.1
+2024-04-19 20:07:27,951:INFO:New client 192.168.1.3 connected.
+2024-04-19 20:07:27,952:INFO:Team amit connected from 192.168.1.3
+2024-04-19 20:07:38,971:ERROR:Accepting new client timed out: timed out
+2024-04-19 20:07:38,972:INFO:Start new game at 2024-04-19 20:07:38.972782
+2024-04-19 20:07:38,972:INFO:The asked question of round 1 is Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.
+2024-04-19 20:07:41,644:INFO:Received answer 'f' from amit at 2024-04-19 20:07:41.644525
+2024-04-19 20:07:41,644:INFO:amit is incorrect the answer of f!
+2024-04-19 20:07:44,216:INFO:Received answer 'f' from barak at 2024-04-19 20:07:44.216214
+2024-04-19 20:07:44,217:INFO:barak is incorrect the answer of f!
+2024-04-19 20:07:46,121:INFO:Received answer 'f' from oded at 2024-04-19 20:07:46.121977
+2024-04-19 20:07:46,121:INFO:oded is incorrect the answer of f!
+2024-04-19 20:07:46,121:INFO:All players answered incorrectly at round 1. Preparing another question...
+2024-04-19 20:07:46,122:INFO:The asked question of round 2 is LeBron James has never won an NBA MVP award.
+2024-04-19 20:07:52,112:INFO:Received answer 'f' from oded at 2024-04-19 20:07:52.112121
+2024-04-19 20:07:52,113:INFO:oded is correct with the answer of f!
+2024-04-19 20:07:53,635:INFO:Received answer 'f' from barak at 2024-04-19 20:07:53.635762
+2024-04-19 20:07:53,636:INFO:barak is correct with the answer of f!
+2024-04-19 20:07:55,432:INFO:Received answer 't' from amit at 2024-04-19 20:07:55.432735
+2024-04-19 20:07:55,432:INFO:amit is incorrect the answer of t!
+2024-04-19 20:07:55,432:INFO:Sending message to client amit about incorrect answer at 2024-04-19 20:07:55.432735
+2024-04-19 20:07:55,433:INFO:The asked question of round 2 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
+2024-04-19 20:08:05,441:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:08:05,441:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:08:05,441:INFO:No one answered at round 2. Preparing another question...
+2024-04-19 20:08:05,442:INFO:sending message to client about no answer at 2024-04-19 20:08:05.442972
+2024-04-19 20:08:05,443:INFO:sending message to client about no answer at 2024-04-19 20:08:05.443974
+2024-04-19 20:08:05,443:INFO:sending demo message to inactive client oded at 2024-04-19 20:08:05.443974
+2024-04-19 20:08:05,444:INFO:sending demo message to inactive client barak at 2024-04-19 20:08:05.444970
+2024-04-19 20:08:05,444:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:05.444970
+2024-04-19 20:08:05,444:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:05.444970
+2024-04-19 20:08:05,444:INFO:The asked question of round 3 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
+2024-04-19 20:08:15,454:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:08:15,454:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:08:15,456:INFO:No one answered at round 3. Preparing another question...
+2024-04-19 20:08:15,456:INFO:sending message to client about no answer at 2024-04-19 20:08:15.456108
+2024-04-19 20:08:15,457:INFO:sending message to client about no answer at 2024-04-19 20:08:15.457109
+2024-04-19 20:08:15,457:INFO:sending demo message to inactive client oded at 2024-04-19 20:08:15.457109
+2024-04-19 20:08:15,457:INFO:sending demo message to inactive client barak at 2024-04-19 20:08:15.457109
+2024-04-19 20:08:15,458:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:15.457109
+2024-04-19 20:08:15,458:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:15.458103
+2024-04-19 20:08:15,458:INFO:The asked question of round 4 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
+2024-04-19 20:08:25,479:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:08:25,479:INFO:Timeout occurred for barak, no response received.
+2024-04-19 20:08:25,479:INFO:No one answered at round 4. Preparing another question...
+2024-04-19 20:08:25,480:INFO:sending message to client about no answer at 2024-04-19 20:08:25.480262
+2024-04-19 20:08:25,480:INFO:sending message to client about no answer at 2024-04-19 20:08:25.480262
+2024-04-19 20:08:25,480:INFO:sending demo message to inactive client oded at 2024-04-19 20:08:25.480262
+2024-04-19 20:08:25,481:INFO:sending demo message to inactive client barak at 2024-04-19 20:08:25.480262
+2024-04-19 20:08:25,481:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:25.481273
+2024-04-19 20:08:25,481:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:25.481273
+2024-04-19 20:08:25,481:INFO:The asked question of round 5 is Allen Iverson won two NBA championships.
+2024-04-19 20:08:35,492:INFO:Timeout occurred for oded, no response received.
+2024-04-19 20:08:35,492:INFO:Timeout occurred for barak, no response received.
