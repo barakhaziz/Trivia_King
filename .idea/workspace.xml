@@ -4,12 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment">
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Client.py" beforeDir="false" afterPath="$PROJECT_DIR$/Client.py" afterDir="false" />
+    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session">
+      <change afterPath="$PROJECT_DIR$/old/Client.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/old/Server.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/old/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server.log" beforeDir="false" afterPath="$PROJECT_DIR$/server.log" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -156,7 +156,15 @@
       <option name="project" value="LOCAL" />
       <updated>1713475017357</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session">
+      <option name="closed" value="true" />
+      <created>1713541653885</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1713541653885</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -181,7 +189,8 @@
     <MESSAGE value="starting the trivia game" />
     <MESSAGE value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
     <MESSAGE value="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment" />
-    <option name="LAST_COMMIT_MESSAGE" value="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment" />
+    <MESSAGE value="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session" />
+    <option name="LAST_COMMIT_MESSAGE" value="add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

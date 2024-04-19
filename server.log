@@ -1,0 +1,11 @@
+2024-04-19 18:42:45,878:INFO:Game started at 2024-04-19 18:42:45.877309
+2024-04-19 18:43:00,886:ERROR:Accepting new client timed out: timed out
+2024-04-19 18:43:45,112:INFO:Game started at 2024-04-19 18:43:45.111913
+2024-04-19 18:43:53,080:INFO:Game started at 2024-04-19 18:43:53.080854
+2024-04-19 18:44:08,095:ERROR:Accepting new client timed out: timed out
+2024-04-19 18:44:10,289:INFO:New client 192.168.80.1 connected.
+2024-04-19 18:44:10,290:INFO:Team barak connected from 192.168.80.1
+2024-04-19 18:44:26,306:ERROR:Accepting new client timed out: timed out
+2024-04-19 18:44:26,306:INFO:Only one player connected, game canceled.
+2024-04-19 18:44:26,306:ERROR:Error closing connection for barak: [WinError 10054] An existing connection was forcibly closed by the remote host
+2024-04-19 18:44:26,308:INFO:Game canceled due to insufficient players.
