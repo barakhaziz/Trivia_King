@@ -59,6 +59,7 @@ class TriviaClient:
             except Exception as e:
                 print(f"Error while listening for offers: {e}")
 
+
     def connect_to_server(self, server_addr):
         if self.tcp_socket is None:  # Check if the socket needs to be reinitialized
             self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -107,6 +108,7 @@ class TriviaClient:
                 break
 
 
+
     def send_user_input(self):
         while self.running:
             try:
@@ -117,6 +119,7 @@ class TriviaClient:
                 self.running = False
                 self.tcp_socket.close()
                 os._exit(0)
+            time.sleep(1)
 
     def bot_behavior(self):
         """Simulate bot behavior by waiting for a question and then automatically answering."""

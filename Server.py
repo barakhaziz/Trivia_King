@@ -10,7 +10,7 @@ UDP_PORT = 13117
 TCP_PORT = 5555
 MAGIC_COOKIE = 0xabcddcba
 #CLIENT_RESPONSE_TIMEOUT = 13  # in seconds
-GAME_DURATION = 10  # in seconds
+GAME_DURATION = 15  # in seconds
 WAIT_FOR_CLIENT_ANSWER_IN_ROUND= 10
 WAIT_FOR_2_CLIENTS_AT_LEAST = 25
 
@@ -47,6 +47,7 @@ class TriviaServer:
     def __init__(self):
         self.running = True
         self.origin_clients = []
+        self.clients_didnt_answer = []
         self.clients = []
         self.correct_answers = []
         self.game_inactive_players = []
@@ -100,6 +101,7 @@ class TriviaServer:
                 thread=threading.Thread(target=self.handle_tcp_client, args=(conn, tcp_addr))
                 threads.append(thread)# Add the thread to the list
                 thread.start()  # Join each thread
+                time.sleep(1)
             except socket.timeout as e:
                 logging.error(f"Accepting new client timed out: {e}")
                 if time.time() - start_time >= GAME_DURATION and len(self.clients) >= 2:
@@ -141,10 +143,22 @@ class TriviaServer:
             logging.error(f"Unexpected error handling client {addr}: {e}")
             self.remove_client(conn, team_name)  # Safely remove client on error
 
+    # notify all inactive players to prevent clients disconnect from server
+    def notify_inactive_players(self, round):
+        for client in self.game_inactive_players:  # Ensure all inactive players get updated
+            name, conn = client
+            try:
+                logging.info(f"sending demo message to inactive client {name} at {datetime.now()}")
+                conn.sendall(f"Round {round + 1} but you are out of the game.\n".encode('utf-8'))
+            except Exception as e:
+                logging.error(f"Error notifying inactive client {name}: {e}")
+                print(f"Error notifying inactive client {name}: {e}")
+
     def start_game(self):
         try:
             round = 1
             while len(self.clients) > 1:
+                print(len(self.clients))
                 self.get_answer = False
                 start_time = time.time()
                 true_statement = random.choice(TRUE_STATEMENTS)
@@ -168,6 +182,7 @@ class TriviaServer:
                 print(message)
                 # Send the welcome message to all clients
                 threads = []
+                self.clients_didnt_answer = list(self.clients)
                 for client in self.clients:
                     name, conn = client
                     try:
@@ -182,9 +197,12 @@ class TriviaServer:
 
                 for thread in threads:
                     thread.join()
-                # Wait for client answers or timeout
-                time.sleep(GAME_DURATION)
-                if not self.get_answer:
+
+                #time.sleep(GAME_DURATION)
+
+                # case 1: no one answered in the current round in 10 seconds
+                # behavior: notify all players that no one answered and prepare another question
+                if self.clients == self.clients_didnt_answer and not self.get_answer:
                     logging.info(f"No one answered at round {round}. Preparing another question...")
                     print("No one answered. Preparing another question...")
                     for name, conn in self.clients:
@@ -192,25 +210,41 @@ class TriviaServer:
                             logging.info(f"sending message to client about no answer at {datetime.now()}")
                             conn.sendall("No one answered. Preparing another question....\n".encode('utf-8'))
                         except Exception as e:
-                            logging.error(f"Error notifying client {name}: {e}")
-                            print(f"Error notifying client {name}: {e}")
-
-                    # notify all inactive players to prevent clients disconnect from server - bug 1 fixec
-                    for client in self.game_inactive_players:  # Ensure all inactive players get updated
-                        name, conn = client
-                        try:
-                            logging.info(f"sending demo message to inactive client {name} at {datetime.now()}")
-                            conn.sendall(f"Round {round+1} but you are out of the game.\n".encode('utf-8'))
-                        except Exception as e:
-                            logging.error(f"Error notifying inactive client {name}: {e}")
-                            print(f"Error notifying inactive client {name}: {e}")
+                            logging.error(f"Error notifying client - case1 {name}: {e}")
+                            print(f"Error notifying client - case1 {name}: {e}")
+                    self.notify_inactive_players(round)
                     round += 1
                     continue
+                # case 2: some players didn't answer in the current round
+                # assumptions: the player didn't answer because of 2 reasons: 
+                # 1. the player disconnected from the game due to network error in his side
+                # 2. the player didn't answer in the current round because he didn't know the answer
+                # behavior: based on both assumptions, the server will remove the player from the game
+                else: # remove player that didn't answer in the current round
+                    for name, conn in self.clients_didnt_answer:
+                        try:
+                            logging.info(f"Sending message to client {name} about no answer at {datetime.now()}")
+                            conn.sendall("You didn't answer in the current round and are out of the game.\n".encode('utf-8'))
+                            self.remove_client(conn, name)
+                        except socket.error as e:
+                            # This exception handles the case where the socket is already closed or unreachable
+                            logging.error(f"Client {name} disconnected from the game due the network error: {e}")
+                            print(f"Client {name} disconnected from the game due the network error: {e}")
+                        except Exception as e:
+                            logging.error(f"Unexpected error when trying to close connection with {name}: {e}")
+                            print(f"Unexpected error when trying to close connection with {name}: {e}")
+
+
+
                 correct_clients = [client for client in self.clients if client[0] in self.correct_answers]
-                incorrect_clients = [client for client in self.clients if client[0] not in self.correct_answers]
+                print(f"correct_clients: {correct_clients}")
+                incorrect_clients = [client for client in self.clients if client[0] not in self.correct_answers and client[0] not in self.clients_didnt_answer]
+                print(f"incorrect_clients: {incorrect_clients}")
+                print(f"client which didnt answer: {self.clients_didnt_answer}")
                 self.game_inactive_players.extend(incorrect_clients)
 
-
+                # case 3: all players answered incorrectly
+                # behavior: notify all players that all answered incorrectly and prepare another question
                 if incorrect_clients and not correct_clients:  # If all answered incorrectly, do not remove them
                     logging.info(f"All players answered incorrectly at round {round}. Preparing another question...")
                     print("All players answered incorrectly. Preparing another question...")
@@ -218,35 +252,31 @@ class TriviaServer:
                         try:
                             conn.sendall("Everyone was wrong. Let's try another question.\n".encode('utf-8'))
                         except Exception as e:
-                            logging.error(f"Error notifying client {name}: {e}")
-                            print(f"Error notifying client {name}: {e}")
+                            logging.error(f"Error notifying client - case2 {name}: {e}")
+                            print(f"Error notifying client - case2 {name}: {e}")
                     round+= 1
                     continue
+
+                # case 4: at least one player answered correctly
+                # behavior: notify all players that at least one player answered correctly and prepare another question
                 else:  # Some players were correct, remove incorrect players
                     for name, conn in incorrect_clients:
                         try:
                             logging.info(f"Sending message to client {name} about incorrect answer at {datetime.now()}")
                             conn.sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
                         except Exception as e:
-                            logging.info(f"Error notifying client {name}: {e}")
-                            print(f"Error notifying client {name}: {e}")
+                            logging.info(f"Error notifying client - case3 {name}: {e}")
+                            print(f"Error notifying client- case3 {name}: {e}")
 
                 self.clients = correct_clients  # Update the client list to only those who answered correctly
 
 
-                correct_answer = len(correct_clients) > 0
-                if correct_answer:
-                    print("At least one player answered correctly.")
-                    self.correct_answers = []
-                else:
-                    print("No one answered correctly. Choosing another random question...")
-                    self.correct_answers = []
-                round += 1
-
-
-            else:  # Ending the game
+            # handle game end: there are less then 2 players in the game
+            else:
+                # case 5: only one player left in the game
+                # behavior: notify all players who is the winner and close the sockets with all the players
                 if len(self.clients) == 1:
-                    winner_message=f"Congratulations to the winner: {self.clients[0][0]}.\n"
+                    winner_message=f"Game over!\nCongratulations to the winner: {self.clients[0][0]}.\n"
                     print(winner_message)
                     logging.info(winner_message)
                     for client_name, socket_obj in self.origin_clients:
@@ -259,6 +289,9 @@ class TriviaServer:
                         #print(f"Closing session for {client_name}\n")
                         # add error handling in case of fail close
                         print(f"Session for {client_name} closed successfully")
+
+                # case 6: no one left in the game (no players)
+                # behavior: notify all players that there is no winner and close the sockets with all the players
                 else:
                     no_winner_message = "Game over! No winner.\n"
                     print(no_winner_message)
@@ -273,21 +306,27 @@ class TriviaServer:
                         #print(f"Closing session for {client_name}\n")
                         # add error handling in case of fail close
                         print(f"Session for {client_name} closed successfully")
+
                 for client in self.clients:
                     client[1].close()  # Close each client's TCP connection
                 print("Game over, sending out offer requests...")
+
                 # init all the variables for the next game
-                self.game_inactive_players = []
-                self.origin_clients = []
-                self.clients = []
-                self.get_answer = False
-                self.running = False
-                #self.broadcast_message()  # Assume this method handles broadcasting
-                self.start(time.time())
+                self.init_struct_for_new_game()
+
         except Exception as e:
             logging.error("Unexpected error during game start: {}".format(e))
 
 
+    def init_struct_for_new_game(self):
+        self.game_inactive_players = []
+        self.origin_clients = []
+        self.clients_didnt_answer = []
+        self.clients = []
+        self.get_answer = False
+        self.running = False
+        self.correct_answers = []
+        self.start(time.time())
     def handle_client_answer(self, conn, stat, client_name):
         conn.settimeout(GAME_DURATION)  # Set timeout to GAME_DURATION for this client
         try:
@@ -310,15 +349,18 @@ class TriviaServer:
                         print(f"{client_name} is correct!")
                         logging.info(f"{client_name} is correct with the answer of {ans}!")
                         self.correct_answers.append(client_name)
+                        self.clients_didnt_answer.remove((client_name, conn))
                         break  # Exit the loop as the client gave a correct response
                     else:
                         logging.info(f"{client_name} is incorrect the answer of {ans}!")
                         print(f"{client_name} is incorrect!")
+                        self.clients_didnt_answer.remove((client_name, conn))
                         break  # Exit the loop as the client gave an incorrect but valid response
                 else:
                     print("Invalid input. Please send 'T' or 'F'.")
                     conn.sendall(
                         "Invalid input. Please send 'T' or 'F'.\n".encode('utf-8'))  # Prompt for correct input
+                time.sleep(1)
         except Exception as e:
             logging.error(f"Error while receiving answer from {client_name}: {e}")
             self.remove_client(conn, client_name)
@@ -363,9 +405,6 @@ class TriviaServer:
         raise Exception("Could not find an available port within the range.")
 
 # to complete:
-# 1. handle a case of a client that disconnects in the middle of the game due to network error
-# 2. handle case how to handle a player that didnt answer in a current round
-# 3. fix bugs
 # 4. consider to change the choose port 5555 function
 # 5. verify the busy wait
 # sub missions:
@@ -377,13 +416,19 @@ class TriviaServer:
 # 6. add more print statements/delete unnecessary prints -
 # 7. details about our mechanisms for each case
 
-
 # bugs
-# 1. wait 20seconds and not 10sec before telling players that no one answered
+# clients bugs:
+# 1. duplicate name now didn't stop
+# 3. handle case where before game start, the client connect and then disconnect due to network error
+# 4. bot not remove clients from game after first round: 7 bots files
+# 5. handle case of game over: only one player answer incorrectly and the other didn't answer
 
 # mechanisms:
-# 1. if no answer from the server, the client has timeout of SERVER_NO_RESPONSE_TIMEOUT
+# 1. server disconnect handling: if no answer from the server, the client has timeout of SERVER_NO_RESPONSE_TIMEOUT
 # 2. if only one player is connected, the server will wait WAIT_FOR_2_CLIENTS_AT_LEAST and then cancel the game
+# 3. when game ended, the server will send broadcast message to all clients and be ready to start a new game (not just broadcast)
+# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session
+
 
 # Done
 # 1 send message to the client that the game is canceled - bug 1 fixed
@@ -395,154 +440,3 @@ class TriviaServer:
 
 
 
-
-    # def handle_client_answer(self, conn, stat, client_name):
-    #     try:
-    #         while True:
-    #             ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client
-    #             # Check if the answer is valid
-    #             received_time = datetime.now()
-    #             logging.info(f"Received answer '{ans}' from {client_name} at {received_time}")
-    #             if ans.lower() in ("y", "t", "1", "f", "n", "0"):
-    #                 if ((ans.lower() in ("y", "t", "1") and stat in TRUE_STATEMENTS) or
-    #                         (ans.lower() in ("n", "f", "0") and stat in FALSE_STATEMENTS)):
-    #                     print(f"{client_name} is correct!")
-    #                     logging.info(f"{client_name} is correct!")
-    #                     self.correct_answers.append(client_name)
-    #                     break  # Exit the loop as the client gave a correct response
-    #                 else:
-    #                     logging.info(f"{client_name} is incorrect!")
-    #                     print(f"{client_name} is incorrect!")
-    #                     break  # Exit the loop as the client gave an incorrect but valid response
-    #             else:
-    #                 print("Invalid input. Please send 'T' or 'F'.")
-    #                 conn.sendall("Invalid input. Please send 'T' or 'F'.\n".encode('utf-8'))  # Prompt for correct input
-    #     except Exception as e:
-    #         logging.error(f"Error while receiving answer from {client_name}: {e}")
-    #         self.remove_client(conn, client_name)
-
-# def start_game(self):
-#     round = 1
-#     while len(self.clients) > 1:
-#         start_time = time.time()
-#         true_statement = random.choice(TRUE_STATEMENTS)
-#         false_statement = random.choice(FALSE_STATEMENTS)
-#         true_false = (true_statement, false_statement)
-#         if round== 1:
-#             message = f"Welcome to the {self.server_name}, where we are answering trivia questions about NBA. \n"
-#             counter = 1
-#             for client in self.clients:
-#                 message += f"Player {counter} : {client[0]}\n"
-#                 counter += 1
-#             message += f" == \n"
-#             stat=random.choice(true_false)
-#
-#             message += f"True or False: {stat}\nEnter your answer (T/F):\n"
-#         else: # If it's not the first round
-#             player_names = " and ".join(client[0] for client in self.clients)
-#             message = f"Round {round}, played by {player_names}:\n"
-#             stat = random.choice(true_false)
-#             message += f"True or False: {stat}\nEnter your answer (T/F):\n"
-#         logging.info(f"The asked question of round {round} is {stat}")
-#         print(message)
-#         # Send the welcome message to all clients
-#         threads = []
-#         for client in self.clients:
-#             name, conn = client
-#             try:
-#                 message_to_send = f"{name}\n{message}\n"  # Ensure each message ends with a newline
-#                 conn.sendall(message_to_send.encode('utf-8'))  # Send the name and the message
-#                 #threading.Thread(target=conn.sendall, args=(message_to_send.encode('utf-8'))).start()
-#                 # self.handle_client_answer(conn, stat, name)
-#                 thread = threading.Thread(target=self.handle_client_answer, args=(conn, stat, name))
-#                 thread.start()  # Start the thread without immediately joining it
-#                 threads.append(thread)
-#             except Exception as e:
-#                 print(f"Error sending data to client {name}: {e}")
-#         for thread in threads:
-#             thread.join()  # Join each thread
-#         # Wait for client answers or timeout
-#         time.sleep(GAME_DURATION)
-#         correct_clients = [client for client in self.clients if client[0] in self.correct_answers]
-#         incorrect_clients = [client for client in self.clients if client[0] not in self.correct_answers]
-#         for name, conn in incorrect_clients:
-#             try:
-#                 conn.sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
-#             except Exception as e:
-#                 logging.error(f"Error notifying client {name}: {e}")
-#                 print(f"Error notifying client {name}: {e}")
-#         self.clients = correct_clients
-#         correct_answer = False
-#         for client in self.clients:
-#             name, _ = client
-#             # Check if the client answered correctly
-#             if name in self.correct_answers:
-#                 correct_answer = True
-#                 print(f"At least one player answered correctly.")
-#                 self.correct_answers = []
-#                 #self.start_game()
-#                 break
-#         # If nobody answered correctly, or no one answered at all, choose another random question
-#         if not correct_answer:
-#             print("No one answered correctly. Choosing another random question...")
-#             self.correct_answers = []
-#             #self.start_game()  # Start a new game
-#         round += 1
-#     else:
-#         if len(self.clients) == 1:
-#             winner_message=f"Game over! The winner is {self.clients[0][0]}.\n"
-#             print(winner_message)
-#             logging.info(winner_message)
-#             for client_name, socket_obj in self.origin_clients:
-#                 socket_obj.sendall(winner_message.encode('utf-8'))
-#                 self.remove_client(socket_obj, client_name)
-#                 #print(f"Closing session for {client_name}\n")
-#                 # add error handling in case of fail close
-#                 print(f"Session for {client_name} closed successfully")
-#         else:
-#             no_winner_message = "Game over! No winner.\n"
-#             print(no_winner_message)
-#             logging.info(no_winner_message)
-#             for client_name, socket_obj in self.origin_clients:
-#                 socket_obj.sendall(no_winner_message.encode('utf-8'))
-#                 self.remove_client(socket_obj, client_name)
-#                 #print(f"Closing session for {client_name}\n")
-#                 # add error handling in case of fail close
-#                 print(f"Session for {client_name} closed successfully")
-
-
-# def handle_client_answer(self, conn,stat,client_name):
-#     try:
-#         ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client
-#         print(ans)
-#         # check if the answer is correct
-#         if (ans.lower()=="y" or ans.lower()=="t" or ans=="1" or ans.lower()=="f" or ans.lower()=="n" or ans=="0"):
-#             if ((ans.lower() == "y" or ans.lower() == "t" or ans == "1")and stat in TRUE_STATEMENTS) or ((ans.lower() == "n" or ans.lower() == "f" or ans == "0")and stat in FALSE_STATEMENTS):
-#                 print(f"{client_name} is correct !")
-#                 self.correct_answers.append(client_name)
-#
-#             else:
-#                 print(f"{client_name} is incorrect !")
-#
-#         else:
-#             print("invalid input")
-#
-#     except Exception as e:
-#         print(f"Error while receiving answer from client: {e}")
-
-# def handle_tcp_client(self, conn, addr):
-#     try:
-#         team_name = conn.recv(1024).decode('utf-8').strip()
-#         if any(team_name == existing_name for existing_name, _ in self.origin_clients):
-#             conn.sendall("Name is taken, choose a new one.".encode('utf-8'))
-#             conn.close()
-#             logging.warning(f"Duplicate name attempt from {addr[0]} denied.")
-#             print(f"Duplicate name attempt from {addr[0]} denied.")
-#         else:
-#             self.clients.append((team_name, conn))  # Store client conn
-#             self.origin_clients.append((team_name, conn))
-#             logging.info(f"Team {team_name} connected from {addr[0]}")
-#             print(f"Team {team_name} connected from {addr[0]}\n")
-#     except Exception as e:
-#         logging.error(f"Error handling client {addr}: {e}")
-#         self.remove_client(conn, team_name)  # Safely remove client on error
