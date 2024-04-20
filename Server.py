@@ -132,7 +132,7 @@ class TriviaServer:
             if data:
                 team_name = data.decode('utf-8').strip()
                 if any(team_name == existing_name for existing_name, _ in self.origin_clients):
-                    conn.sendall(f"Name is taken, choose a new one.".encode('utf-8'))
+                    conn.sendall(f"\033[93mName is taken, choose a new one.\033[0m".encode('utf-8'))
                     logging.warning(f"Duplicate name {team_name} attempt from {addr[0]} denied.")
                     print_color(f"Duplicate name attempt from {addr[0]} denied.", "red")
                 else:
@@ -176,7 +176,7 @@ class TriviaServer:
                 true_false = (true_statement, false_statement)
                 if round == 1:
                     logging.info(f"Start new game at {datetime.now()}")
-                    message = f"Welcome to the {self.server_name}, where we are answering trivia questions about NBA.\n"
+                    message = f"\033[94mWelcome to the {self.server_name}, where we are answering trivia questions about NBA.\n\033[0m"
                     counter = 1
                     for client in self.clients:
                         message += f"Player {counter} : {client[0]}\n"
@@ -184,7 +184,7 @@ class TriviaServer:
                     message += f" == \n"
                 else:
                     player_names = " and ".join(client[0] for client in self.clients)
-                    message = f"\033[96mRound {round}\033[0m, played by {player_names}:\n"
+                    message = f"\033[94mRound {round}\033[0m, played by {player_names}:\n"
 
                 stat = random.choice(true_false)
                 message += f"\033[93mTrue or False: {stat}\nEnter your answer (T/F):\n\033[0m"
@@ -246,7 +246,7 @@ class TriviaServer:
                     for name, conn in self.clients_didnt_answer:
                         try:
                             logging.info(f"Sending message to client {name} about no answer at {datetime.now()}")
-                            conn.sendall("You didn't answer in the current round and are out of the game.\n".encode('utf-8'))
+                            conn.sendall("\033[91mYou didn't answer in the current round and are out of the game.\n\033[0m".encode('utf-8'))
                             self.remove_client(conn, name)
                         except socket.error as e:
                             # This exception handles the case where the socket is already closed or unreachable
@@ -274,8 +274,8 @@ class TriviaServer:
                 # case 7: one player answered incorrectly and the other didn't answer
                 # behavior: game over without a winner
                 if len(incorrect_clients) == 1 and len(correct_clients) == 0 and len(self.clients_didnt_answer) + len(incorrect_clients) == len(self.clients):
-                    incorrect_clients[0][1].sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
-                    self.clients=[]
+                    incorrect_clients[0][1].sendall("\033[91mYou answered incorrectly and are out of the game.\n\033[0m".encode('utf-8'))
+                    self.clients = []
                     time.sleep(1.3)
                     continue
 
@@ -300,7 +300,7 @@ class TriviaServer:
                     for name, conn in incorrect_clients:
                         try:
                             logging.info(f"Sending message to client {name} about incorrect answer at {datetime.now()}")
-                            conn.sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
+                            conn.sendall("\033[91mYou answered incorrectly and are out of the game.\n\033[0m".encode('utf-8'))
                         except Exception as e:
                             logging.info(f"Error notifying client - case3 {name}: {e}")
                             print_color(f"Error notifying client- case3 {name}: {e}", "red")
@@ -411,7 +411,7 @@ class TriviaServer:
                 else:
                     print_color("Invalid input. Please send 'T' or 'F'.", "red")
                     conn.sendall(
-                        "Invalid input. Please send 'T' or 'F'.\n".encode('utf-8'))  # Prompt for correct input
+                        "\033[91mInvalid input. Please send 'T' or 'F'.\n\033[0m".encode('utf-8'))  # Prompt for correct input
                 time.sleep(1.3)
         except Exception as e:
             logging.error(f"Error while receiving answer from {client_name}: {e}")
@@ -430,7 +430,7 @@ class TriviaServer:
             client_name, client_conn = self.clients[0]  # Correctly unpack the tuple
             try:
                 logging.info(f"Only one player connected, game canceled.")
-                client_conn.sendall("Only one player connected, game canceled.\n".encode('utf-8'))
+                client_conn.sendall("\033[91mOnly one player connected, game canceled.\n\033[0m".encode('utf-8'))
                 client_conn.close()  # Use the connection object directly
             except Exception as e:
                 logging.error(f"Error closing connection for {client_name}: {e}")

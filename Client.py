@@ -50,7 +50,7 @@ class TriviaClient:
         """ Generate a new name by incrementing a suffix. """
         self.name_suffix += 1
         self.name = f"{self.name}_{self.name_suffix}"
-        print(f"New name generated: {self.name}")
+        print_color(f"New name generated: {self.name}", "yellow")
 
     def generate_bot_name(self):
         # Generate a random name from a list of names or by a random string
@@ -61,7 +61,7 @@ class TriviaClient:
         return f"BOT_{random.choice(names)}"
 
     def start(self):
-        print_color(f"Client {self.name} started, listening for offer requests...", "cyan")
+        print(f"Client {self.name} started, listening for offer requests...")
         threading.Thread(target=self.send_user_input).start()
         self.listen_to_broadcast()
 
