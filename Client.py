@@ -88,7 +88,9 @@ class TriviaClient:
             try:
                 data = self.tcp_socket.recv(1024)
                 if data:
+                    message = data.decode('utf-8')
                     print(data.decode('utf-8'))
+
                 else:
                     print("Server has closed the connection.")
                     self.close_connection()  # Close on server initiated disconnection
@@ -123,7 +125,7 @@ class TriviaClient:
 
     def bot_behavior(self):
         """Simulate bot behavior by waiting for a question and then automatically answering."""
-        # bug 2 - fixed
+
         out_of_game = False  # Flag to indicate whether the bot is out of the game
         while self.running and not out_of_game:
             try:
@@ -164,11 +166,6 @@ class TriviaClient:
         self.tcp_socket = None  # Reset the socket
         self.running = True
         self.listen_to_broadcast()  # Restart listening for UDP broadcasts
-
-    # def close_connection(self):
-    #     self.running = False
-    #     self.tcp_socket.close()
-    #     print("Disconnected from server")
 
 
 

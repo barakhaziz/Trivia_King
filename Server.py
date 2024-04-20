@@ -120,7 +120,7 @@ class TriviaServer:
                 team_name = data.decode('utf-8').strip()
                 if any(team_name == existing_name for existing_name, _ in self.origin_clients):
                     conn.sendall("Name is taken, choose a new one.".encode('utf-8'))
-                    conn.close()
+                    #conn.close()
                     logging.warning(f"Duplicate name attempt from {addr[0]} denied.")
                     print(f"Duplicate name attempt from {addr[0]} denied.")
                 else:
@@ -234,13 +234,19 @@ class TriviaServer:
 
 
 
+                # maybe replace using set instead of list
                 correct_clients = [client for client in self.clients if client[0] in self.correct_answers]
-                print(f"correct_clients: {correct_clients}")
                 incorrect_clients = [client for client in self.clients if client[0] not in self.correct_answers and client[0] not in self.clients_didnt_answer]
-                print(f"incorrect_clients: {incorrect_clients}")
-                print(f"client which didnt answer: {self.clients_didnt_answer}")
                 self.game_inactive_players.extend(incorrect_clients)
 
+                # for debug only
+                # print(f"correct_answers: {self.correct_answers}")
+                # print(f"correct_clients: {correct_clients}")
+                # print(f"incorrect_clients: {incorrect_clients}")
+                # print(f"client which didnt answer: {self.clients_didnt_answer}")
+
+                # case 7: one player answered incorrectly and the other didn't answer
+                # behavior: game over without a winner
                 if len(incorrect_clients) == 1 and len(correct_clients) == 0 and len(self.clients_didnt_answer) + len(incorrect_clients) == len(self.clients):
                     incorrect_clients[0][1].sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
                     self.clients=[]
@@ -272,8 +278,8 @@ class TriviaServer:
                             print(f"Error notifying client- case3 {name}: {e}")
 
 
-
                 self.clients = correct_clients  # Update the client list to only those who answered correctly
+                self.correct_answers= []  # Reset the correct answers list
 
 
             # handle game end: there are less then 2 players in the game
@@ -423,15 +429,19 @@ class TriviaServer:
 # 4. add more exception handling both client and server
 # 5. add more print statements/delete unnecessary prints
 # 6. details about our mechanisms for each case
-# 7. create readme file in the repository that explain all our assumptions, mechanism and architecture - Amit
+# 7. create readme file in the repository that explain all our assumptions, mechanism and architecture - Amit (V)
 # 8. verify case when client was wrong and disconnect due to network error - Oded
+# 9. in case of duplicate name, the client generate new name and connect to the server
 
 
 # bugs
 # clients bugs:
-# 1. in case of duplicate name, the clients wont stop generating the same name and keep try to connect server - Amit
-# 2. bot not remove clients from game after first round: test 7 bots client file
+# 1. in case of duplicate name, the clients wont stop generating the same name and keep try to connect server
+# 2. FIXED! bot not remove clients from game after first round: test 7 bots client file
 # 3. the client print wired messages: getting 2 broadcast from 2 servers although its the same server(different ips)
+# 4. FIXED! in game with bots, there is no winner in case of one correct answer and all the rest are wrong (basically like 2)
+# 5. inactive clients prints 2 time the message "round x but you are out of the game" - Amit
+
 
 # server bugs:
 # 1. FIXED! handle case of game over: only one player answer incorrectly and the other didn't answer - Amit
