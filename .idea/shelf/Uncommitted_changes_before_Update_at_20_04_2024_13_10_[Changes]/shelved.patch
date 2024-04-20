@@ -1,0 +1,1389 @@
+Index: Client.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import os\r\nimport socket\r\nimport threading\r\nimport struct\r\nimport sys\r\nimport random\r\nimport time\r\n\r\n\r\n\r\nUDP_PORT = 13117\r\nMAGIC_COOKIE = 0xabcddcba\r\nSERVER_ADDRESS = '0.0.0.0'  # For listening for broadcasts\r\nSERVER_NO_RESPONSE_TIMEOUT = 45  # Timeout for server to respond to client connection\r\n\r\nclass TriviaClient:\r\n    def __init__(self, name=None, is_bot=False):\r\n        if is_bot:\r\n            self.name = \"BOT_\" + self.generate_random_name()\r\n        else:\r\n            self.name = name if name else \"Client\"\r\n\r\n        self.is_bot = is_bot\r\n        self.tcp_socket = None\r\n        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)\r\n        self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))\r\n        self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\r\n        self.running = True\r\n\r\n\r\n\r\n    def generate_random_name(self):\r\n        # Generate a random name from a list of names or by a random string\r\n        names = ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank', 'Grace', 'Hannah', 'Ivan', 'Jack', 'Kevin', 'Liam',\r\n                 'Mia', 'Nora', 'Oliver', 'Penny', 'Quinn', 'Riley', 'Sophia', 'Tom', 'Ursula', 'Violet', 'Will', 'Xander',\r\n                 'Yara', 'Zoe']\r\n        return random.choice(names)\r\n\r\n    def start(self):\r\n        print(f\"Client {self.name} started, listening for offer requests...\")\r\n        threading.Thread(target=self.send_user_input).start()\r\n        self.listen_to_broadcast()\r\n\r\n    def listen_to_broadcast(self):\r\n        while True:\r\n            data, addr = self.udp_socket.recvfrom(1024)\r\n            try:\r\n                magic_cookie, msg_type = struct.unpack(\"!Ib\", data[:5])\r\n                if magic_cookie == MAGIC_COOKIE and msg_type == 0x2:\r\n                    server_name = data[5:37].decode('utf-8').strip()\r\n                    server_port = struct.unpack(\"!H\", data[37:39])[0]\r\n                    print(f\"Received offer from {server_name} at address {addr[0]}, connecting...\")\r\n                    self.connect_to_server((addr[0], server_port))\r\n                    break\r\n            except struct.error:\r\n                print(\"Received corrupted data\")\r\n            except Exception as e:\r\n                print(f\"Error while listening for offers: {e}\")\r\n\r\n\r\n    def connect_to_server(self, server_addr):\r\n        if self.tcp_socket is None:  # Check if the socket needs to be reinitialized\r\n            self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\r\n            self.tcp_socket.settimeout(SERVER_NO_RESPONSE_TIMEOUT)  # Set timeout for response\r\n        try:\r\n            self.tcp_socket.connect(server_addr)\r\n            # set timeout for client is doesnt receive any response from the server\r\n            self.tcp_socket.settimeout(SERVER_NO_RESPONSE_TIMEOUT)\r\n            self.tcp_socket.sendall(f\"{self.name}\\n\".encode('utf-8'))\r\n            if self.is_bot:\r\n                self.bot_behavior()\r\n            else:\r\n                threading.Thread(target=self.receive_server_data).start()\r\n        except socket.error as e:\r\n            print(f\"Connection failed: {e}\")\r\n            self.tcp_socket.close()  # Properly close the socket on failure to connect\r\n            self.tcp_socket = None  # Reset the socket to None after closing\r\n        except Exception as e:\r\n            print(f\"Error connecting to server: {e}\")\r\n            self.tcp_socket.close()  # Ensure the socket is closed on error\r\n            self.tcp_socket = None  # Reset the socket to None after closing\r\n            sys.exit(1)\r\n\r\n    def receive_server_data(self):\r\n        while self.running:\r\n            try:\r\n                data = self.tcp_socket.recv(1024)\r\n                if data:\r\n                    print(data.decode('utf-8'))\r\n                else:\r\n                    print(\"Server has closed the connection.\")\r\n                    self.close_connection()  # Close on server initiated disconnection\r\n                    break\r\n            except socket.timeout:\r\n                # fix this printing\r\n                print(\"Server response timed out. set in the function 'connect_to_server' -> self.tcp_socket.settimeout(40)\")\r\n                self.close_connection()  # Close connection after timeout\r\n                break\r\n            except socket.error as e:\r\n                print(f\"Network error: {e}\")\r\n                self.close_connection()  # Close connection on network error\r\n                break\r\n            except RuntimeError as e:\r\n                self.close_connection()\r\n                print(f\"Connection closed by server: {e}\")\r\n                break\r\n\r\n\r\n\r\n    def send_user_input(self):\r\n        while self.running:\r\n            try:\r\n                user_input = input()\r\n                self.tcp_socket.sendall(user_input.encode('utf-8') + b'\\n')\r\n            except KeyboardInterrupt:\r\n                print(\"Exiting...\")\r\n                self.running = False\r\n                self.tcp_socket.close()\r\n                os._exit(0)\r\n            time.sleep(1)\r\n\r\n    def bot_behavior(self):\r\n        \"\"\"Simulate bot behavior by waiting for a question and then automatically answering.\"\"\"\r\n        # bug 2 - fixed\r\n        out_of_game = False  # Flag to indicate whether the bot is out of the game\r\n        while self.running and not out_of_game:\r\n            try:\r\n                # Wait for data from the server\r\n                data = self.tcp_socket.recv(1024).decode('utf-8').strip()\r\n                if \"You answered incorrectly and are out of the game.\" in data:\r\n                    print(\"Received notification of elimination from game.\")\r\n                    out_of_game = True  # Set the flag indicating the bot is out of the game\r\n                    continue  # Continue listening to the server without sending answers\r\n\r\n                if data:\r\n                    print(data)  # Print the received message\r\n                    # Only generate an answer if not out of the game\r\n                    if not out_of_game:\r\n                        # Simulate thinking time before sending an answer\r\n                        time.sleep(random.uniform(0.5, 2))\r\n                        answer = random.choice(['T', 'F'])  # Randomly choose an answer\r\n                        print(f\"Bot {self.name} answering: {answer}\")\r\n                        self.tcp_socket.sendall(answer.encode('utf-8') + b'\\n')\r\n            except socket.timeout:\r\n                print(\r\n                    \"Server response timed out. set in the function 'connect_to_server' -> self.tcp_socket.settimeout(40)\")\r\n                self.close_connection()  # Close connection after timeout\r\n                break\r\n            except socket.error as e:\r\n                print(f\"Network error: {e}\")\r\n                self.close_connection()  # Close connection on network error\r\n                break\r\n            except RuntimeError as e:\r\n                self.close_connection()\r\n                print(f\"Connection closed by server: {e}\")\r\n                break\r\n\r\n    def close_connection(self):\r\n        print(\"Server disconnected, listening for offer requests...\")\r\n        self.running = False\r\n        self.tcp_socket.close()\r\n        self.tcp_socket = None  # Reset the socket\r\n        self.running = True\r\n        self.listen_to_broadcast()  # Restart listening for UDP broadcasts\r\n\r\n    # def close_connection(self):\r\n    #     self.running = False\r\n    #     self.tcp_socket.close()\r\n    #     print(\"Disconnected from server\")\r\n\r\n\r\n\r\n\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Client.py b/Client.py
+--- a/Client.py	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
++++ b/Client.py	(date 1713549156195)
+@@ -7,12 +7,12 @@
+ import time
+ 
+ 
+-
+ UDP_PORT = 13117
+ MAGIC_COOKIE = 0xabcddcba
+ SERVER_ADDRESS = '0.0.0.0'  # For listening for broadcasts
+ SERVER_NO_RESPONSE_TIMEOUT = 45  # Timeout for server to respond to client connection
+ 
++
+ class TriviaClient:
+     def __init__(self, name=None, is_bot=False):
+         if is_bot:
+@@ -29,8 +29,6 @@
+         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+         self.running = True
+ 
+-
+-
+     def generate_random_name(self):
+         # Generate a random name from a list of names or by a random string
+         names = ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank', 'Grace', 'Hannah', 'Ivan', 'Jack', 'Kevin', 'Liam',
+Index: main.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>from Client import TriviaClient\r\nfrom Server import TriviaServer\r\nimport threading\r\nimport random\r\n\r\nif __name__ == \"__main__\":\r\n    try:\r\n        server = TriviaServer()\r\n        server.start()\r\n    except KeyboardInterrupt:\r\n        print(\"Shutdown requested...exiting\")\r\n    except Exception:\r\n        traceback.print_exc()\r\n    for thread in threading.enumerate():\r\n        if thread != threading.current_thread():\r\n            thread.join()\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/main.py b/main.py
+--- a/main.py	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
++++ b/main.py	(date 1713549172717)
+@@ -9,8 +9,10 @@
+         server.start()
+     except KeyboardInterrupt:
+         print("Shutdown requested...exiting")
+-    except Exception:
+-        traceback.print_exc()
++    # except Exception:
++    #     traceback.print_exc()
+     for thread in threading.enumerate():
+         if thread != threading.current_thread():
+             thread.join()
++
++
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01_[Changes]/shelved.patch
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01_[Changes]/shelved.patch b/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01_[Changes]/shelved.patch
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01_[Changes]/shelved.patch	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
++++ /dev/null	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
+@@ -1,203 +0,0 @@
+-Index: main.py
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>from Client import TriviaClient\r\nfrom Server import TriviaServer\r\nimport threading\r\nimport random\r\n\r\nif __name__ == \"__main__\":\r\n    server = TriviaServer()\r\n    server.start()\r\n    client = TriviaClient(\"barak\")\r\n    client.start()\r\n    client = TriviaClient(\"oded\")\r\n    client.start()\r\n    client = TriviaClient(\"amit\", True)\r\n    client.start()\r\n    for thread in threading.enumerate():\r\n        if thread != threading.current_thread():\r\n            thread.join()\r\n\r\n\r\n# if __name__ == \"__main__\":\r\n#     bot_name = \"BOT:\" + str(random.randint(1, 100))  # Generate a unique name for the bot\r\n#     bot_client = TriviaClient(bot_name, is_bot=True)\r\n#     bot_client.start()\r\n
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/main.py b/main.py
+---- a/main.py	(revision 2f1bbf75756eb9d6fdd4e96183560eba5d9a398e)
+-+++ b/main.py	(date 1712758638170)
+-@@ -6,15 +6,15 @@
+- if __name__ == "__main__":
+-     server = TriviaServer()
+-     server.start()
+--    client = TriviaClient("barak")
+--    client.start()
+--    client = TriviaClient("oded")
+--    client.start()
+--    client = TriviaClient("amit", True)
+--    client.start()
+--    for thread in threading.enumerate():
+--        if thread != threading.current_thread():
+--            thread.join()
+-+    # client = TriviaClient("barak")
+-+    # client.start()
+-+    # client = TriviaClient("oded")
+-+    # client.start()
+-+    # client = TriviaClient("amit", True)
+-+    # client.start()
+-+    # for thread in threading.enumerate():
+-+    #     if thread != threading.current_thread():
+-+    #         thread.join()
+- 
+- 
+- # if __name__ == "__main__":
+-Index: Server.py
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>import socket\r\nimport threading\r\nimport struct\r\nimport random\r\nimport time\r\n\r\n# Constants\r\nUDP_PORT = 13117\r\nTCP_PORT = 5555\r\nMAGIC_COOKIE = 0xabcddcba\r\nGAME_DURATION = 10  # in seconds\r\nTRUE_STATEMENTS = [\"Python is a programming language.\", \"The sun rises in the east.\"]\r\nFALSE_STATEMENTS = [\"Water boils at 100 degrees Fahrenheit.\", \"The Earth is flat.\"]\r\n\r\n\r\nclass TriviaServer:\r\n    def __init__(self):\r\n        ## change the IP address\r\n        self.running = True\r\n        self.clients = []\r\n        self.correct_answers = []\r\n        self.server_name = \"AwesomeTriviaServer\"\r\n        # To Make sure this field is always 32 characters long even if your server name is shorter.\r\n        self.padded_server_name = self.server_name.ljust(32)[:32]\r\n        # define UDP socket\r\n        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)\r\n        self.udp_socket.bind(('127.0.0.1', UDP_PORT))\r\n        # define TCP socket\r\n        self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\r\n        self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\r\n        self.tcp_socket.bind(('127.0.0.1', TCP_PORT))\r\n\r\n\r\n\r\n\r\n    def start(self):\r\n        self.tcp_socket.listen(5)  # Listen for incoming connections\r\n        print(f\"Server started, listening on IP address {self.udp_socket.getsockname()[0]}...\")\r\n\r\n        threading.Thread(target=self.broadcast_message).start()\r\n        threading.Thread(target=self.wait_for_clients).start()\r\n\r\n    def broadcast_message(self):\r\n        while True:\r\n            # UDP Broadcast the message to all devices on the network\r\n            broadcast_address = ('<broadcast>', UDP_PORT)\r\n            message = struct.pack(\"!Ib32sH\", MAGIC_COOKIE, 0x2, self.padded_server_name.encode('utf-8'), TCP_PORT)\r\n            self.udp_socket.sendto(message, broadcast_address)\r\n            # Sleep for a short duration to avoid flooding the network\r\n            time.sleep(1)  # You can adjust the sleep duration as needed\r\n\r\n    def wait_for_clients(self):\r\n        start_time = time.time()\r\n        self.tcp_socket.settimeout(GAME_DURATION)\r\n        while self.running:\r\n            try:\r\n                conn, tcp_addr = self.tcp_socket.accept()  # Accept TCP connection\r\n                threading.Thread(target=self.handle_tcp_client, args=(conn, tcp_addr)).start()\r\n            except socket.timeout:\r\n                if time.time() - start_time >= GAME_DURATION:\r\n                    self.running = False\r\n                    self.start_game()\r\n\r\n    def handle_tcp_client(self, conn, addr):\r\n        team_name = conn.recv(1024).decode('utf-8').strip()\r\n        self.clients.append((team_name, conn))  # Store client conn\r\n        print(f\"Team {team_name} connected from {addr[0]}\")\r\n\r\n    def start_game(self):\r\n\r\n        start_time = time.time()\r\n        true_statement = random.choice(TRUE_STATEMENTS)\r\n        false_statement = random.choice(FALSE_STATEMENTS)\r\n        true_false = (true_statement, false_statement)\r\n\r\n        # Build the welcome message\r\n        message = f\"Welcome to the {self.server_name}, where we are answering trivia questions about NBA. \\n\"\r\n        counter = 1\r\n        for client in self.clients:\r\n            message += f\"Player {counter} : {client[0]}\\n\"\r\n            counter += 1\r\n        message += f\" == \\n\"\r\n        stat=random.choice(true_false)\r\n        message += f\"True or False: {stat}\\n\"\r\n        print(message)\r\n        # Send the welcome message to all clients\r\n        for client in self.clients:\r\n            name, conn = client\r\n            try:\r\n                conn.sendall(f\"{name}\\n{message}\".encode('utf-8'))  # Send the name and the message\r\n                #maybe not thread\r\n                threading.Thread(target=self.handle_client_answer, args=(conn,stat,name)).start()\r\n\r\n            except Exception as e:\r\n                print(f\"Error sending data to client {name}: {e}\")\r\n\r\n        # Wait for client answers or timeout\r\n        time.sleep(GAME_DURATION)\r\n        correct_answer = False\r\n        for client in self.clients:\r\n            name, _ = client\r\n            # Check if the client answered correctly\r\n            if name in self.correct_answers:\r\n                correct_answer = True\r\n                print(f\"At least one player answered correctly.\")\r\n                break\r\n\r\n        # If nobody answered correctly, or no one answered at all, choose another random question\r\n        if not correct_answer:\r\n            print(\"No one answered correctly. Choosing another random question...\")\r\n            self.start_game()  # Start a new game\r\n\r\n\r\n\r\n    def handle_client_answer(self, conn,stat,client_name):\r\n        try:\r\n            ans = conn.recv(1024).decode('utf-8').strip()  # Receive answer from client\r\n            # check if the answer is correct\r\n            if (ans.lower()==\"y\" or ans.lower()==\"t\" or ans==\"1\" or ans.lower()==\"f\" or ans.lower()==\"n\" or ans==\"0\"):\r\n                if ((ans.lower() == \"y\" or ans.lower() == \"t\" or ans == \"1\")and stat in TRUE_STATEMENTS) or ((ans.lower() == \"n\" or ans.lower() == \"f\" or ans == \"0\")and stat in FALSE_STATEMENTS):\r\n                    print(f\"{client_name} is correct !\")\r\n                    #self.correct_answers.append(client_name)\r\n\r\n                else:\r\n                    print(f\"{client_name} is incorrect !\")\r\n                    #self.clients.remove(client_name)\r\n\r\n            else:\r\n                print(\"invalid input\")\r\n\r\n        except Exception as e:\r\n            print(f\"Error while receiving answer from client: {e}\")\r\n\r\n\r\n\r\n
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/Server.py b/Server.py
+---- a/Server.py	(revision 2f1bbf75756eb9d6fdd4e96183560eba5d9a398e)
+-+++ b/Server.py	(date 1712762231798)
+-@@ -11,7 +11,8 @@
+- GAME_DURATION = 10  # in seconds
+- TRUE_STATEMENTS = ["Python is a programming language.", "The sun rises in the east."]
+- FALSE_STATEMENTS = ["Water boils at 100 degrees Fahrenheit.", "The Earth is flat."]
+--
+-+SERVER_ADDRESS = '0.0.0.0'
+-+# SERVER_ADDRESS = '127.0.0.1'
+- 
+- class TriviaServer:
+-     def __init__(self):
+-@@ -26,11 +27,11 @@
+-         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+-         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+-         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+--        self.udp_socket.bind(('127.0.0.1', UDP_PORT))
+-+        self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))
+-         # define TCP socket
+-         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+-         self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+--        self.tcp_socket.bind(('127.0.0.1', TCP_PORT))
+-+        self.tcp_socket.bind((SERVER_ADDRESS, TCP_PORT))
+- 
+- 
+- 
+-Index: Client.py
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>import os\r\nimport socket\r\nimport threading\r\nimport struct\r\nimport sys\r\nimport random\r\nimport time\r\n\r\n\r\nUDP_PORT = 13117\r\nMAGIC_COOKIE = 0xabcddcba\r\nSERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts\r\n\r\n\r\nclass TriviaClient:\r\n    def __init__(self, name, is_bot=False):\r\n        self.name = name\r\n        self.is_bot = is_bot  # Flag to indicate if this client is a bot\r\n        self.tcp_socket = None\r\n        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\r\n        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)\r\n        self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))\r\n        self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\r\n        self.running = True\r\n\r\n    def start(self):\r\n        print(f\"Client {self.name} started, listening for offer requests...\")\r\n        self.listen_to_broadcast()\r\n\r\n    def listen_to_broadcast(self):\r\n        while True:\r\n            try:\r\n                data, addr = self.udp_socket.recvfrom(1024)\r\n                magic_cookie, msg_type = struct.unpack(\"!Ib\", data[:5])\r\n                if magic_cookie == MAGIC_COOKIE and msg_type == 0x2:\r\n                    server_name = data[5:37].decode('utf-8').strip()\r\n                    server_port = struct.unpack(\"!H\", data[37:39])[0]\r\n                    print(f\"Received offer from {server_name} at address {addr[0]}, connecting...\")\r\n                    self.connect_to_server((addr[0], server_port))\r\n                    break\r\n            except Exception as e:\r\n                print(f\"Error while listening for offers: {e}\")\r\n\r\n    def connect_to_server(self, server_addr):\r\n        try:\r\n            self.tcp_socket.connect(server_addr)\r\n            self.tcp_socket.sendall(f\"{self.name}\\n\".encode('utf-8'))\r\n            if self.is_bot:\r\n                self.bot_behavior()\r\n            else:\r\n                threading.Thread(target=self.receive_server_data).start()\r\n        except Exception as e:\r\n            print(f\"Error connecting to server: {e}\")\r\n            sys.exit(1)\r\n\r\n    def receive_server_data(self):\r\n        while self.running:\r\n            try:\r\n                data = self.tcp_socket.recv(1024).decode('utf-8')\r\n                if data:\r\n                    print(data)  # Uncomment to print the received message\r\n                    if not self.is_bot:  # Only prompt for input if not a bot\r\n                        self.send_user_input()\r\n            except Exception as e:\r\n                print(f\"Error receiving data from server: {e}\")\r\n                break\r\n\r\n\r\n    def send_user_input(self):\r\n        while self.running:\r\n            try:\r\n                user_input = input()\r\n                self.tcp_socket.sendall(user_input.encode('utf-8') + b'\\n')\r\n            except KeyboardInterrupt:\r\n                print(\"Exiting...\")\r\n                self.running = False\r\n                self.tcp_socket.close()\r\n                os._exit(0)\r\n\r\n\r\n    def bot_behavior(self):\r\n        \"\"\"Simulate bot behavior by waiting for a question and then automatically answering.\"\"\"\r\n        while self.running:\r\n            try:\r\n                # Wait for data from the server\r\n                data = self.tcp_socket.recv(1024).decode('utf-8').strip()\r\n                if data:\r\n                    # Simulate thinking time before sending an answer\r\n                    time.sleep(random.uniform(0.5, 2))\r\n                    answer = random.choice(['T', 'F'])  # Randomly choose an answer\r\n                    print(f\"Bot {self.name} answering: {answer}\")\r\n                    self.tcp_socket.sendall(answer.encode('utf-8') + b'\\n')\r\n            except Exception as e:\r\n                print(f\"Error in bot behavior: {e}\")\r\n                break\r\n\r\n
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/Client.py b/Client.py
+---- a/Client.py	(revision 2f1bbf75756eb9d6fdd4e96183560eba5d9a398e)
+-+++ b/Client.py	(date 1712762231805)
+-@@ -9,8 +9,8 @@
+- 
+- UDP_PORT = 13117
+- MAGIC_COOKIE = 0xabcddcba
+--SERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts
+--
+-+SERVER_ADDRESS = '0.0.0.0'  # This might need to be '0.0.0.0' if listening for broadcasts
+-+# SERVER_ADDRESS = '127.0.0.1'  # This might need to be '0.0.0.0' if listening for broadcasts
+- 
+- class TriviaClient:
+-     def __init__(self, name, is_bot=False):
+-Index: .idea/workspace.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"4b125e54-2be9-48a8-902e-9cc7aee8c5a7\" name=\"Changes\" comment=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\">\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/Trivia_King.iml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/Trivia_King.iml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/misc.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/misc.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Client.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Client.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Server.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Server.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/main.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/main.py\" afterDir=\"false\" />\r\n    </list>\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"FileTemplateManagerImpl\">\r\n    <option name=\"RECENT_TEMPLATES\">\r\n      <list>\r\n        <option value=\"Python Script\" />\r\n      </list>\r\n    </option>\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 5\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2eDxafKyTgwscsfmkoAQYGz33fM\" />\r\n  <component name=\"ProjectLevelVcsManager\" settingsEditedManually=\"true\">\r\n    <ConfirmationsSetting value=\"2\" id=\"Add\" />\r\n  </component>\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\"><![CDATA[{\r\n  \"keyToString\": {\r\n    \"Python.Client.executor\": \"Run\",\r\n    \"Python.main.executor\": \"Run\",\r\n    \"RunOnceActivity.OpenProjectViewOnStart\": \"true\",\r\n    \"RunOnceActivity.ShowReadmeOnStart\": \"true\",\r\n    \"git-widget-placeholder\": \"master\",\r\n    \"node.js.detected.package.eslint\": \"true\",\r\n    \"node.js.detected.package.tslint\": \"true\",\r\n    \"node.js.selected.package.eslint\": \"(autodetect)\",\r\n    \"node.js.selected.package.tslint\": \"(autodetect)\",\r\n    \"nodejs_package_manager_path\": \"npm\",\r\n    \"settings.editor.selected.configurable\": \"org.jetbrains.plugins.github.ui.GithubSettingsConfigurable\",\r\n    \"vue.rearranger.settings.migration\": \"true\"\r\n  }\r\n}]]></component>\r\n  <component name=\"RunManager\" selected=\"Python.main\">\r\n    <configuration name=\"Client\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\r\n      <module name=\"Trivia_King\" />\r\n      <option name=\"ENV_FILES\" value=\"\" />\r\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\r\n      <option name=\"PARENT_ENVS\" value=\"true\" />\r\n      <envs>\r\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\r\n      </envs>\r\n      <option name=\"SDK_HOME\" value=\"\" />\r\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$\" />\r\n      <option name=\"IS_MODULE_SDK\" value=\"true\" />\r\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\r\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\r\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\r\n      <option name=\"SCRIPT_NAME\" value=\"$PROJECT_DIR$/Client.py\" />\r\n      <option name=\"PARAMETERS\" value=\"\" />\r\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\r\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\r\n      <option name=\"MODULE_MODE\" value=\"false\" />\r\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\r\n      <option name=\"INPUT_FILE\" value=\"\" />\r\n      <method v=\"2\" />\r\n    </configuration>\r\n    <configuration name=\"main\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\r\n      <module name=\"Trivia_King\" />\r\n      <option name=\"ENV_FILES\" value=\"\" />\r\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\r\n      <option name=\"PARENT_ENVS\" value=\"true\" />\r\n      <envs>\r\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\r\n      </envs>\r\n      <option name=\"SDK_HOME\" value=\"\" />\r\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$\" />\r\n      <option name=\"IS_MODULE_SDK\" value=\"true\" />\r\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\r\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\r\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\r\n      <option name=\"SCRIPT_NAME\" value=\"$PROJECT_DIR$/main.py\" />\r\n      <option name=\"PARAMETERS\" value=\"\" />\r\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\r\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\r\n      <option name=\"MODULE_MODE\" value=\"false\" />\r\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\r\n      <option name=\"INPUT_FILE\" value=\"\" />\r\n      <method v=\"2\" />\r\n    </configuration>\r\n    <recent_temporary>\r\n      <list>\r\n        <item itemvalue=\"Python.main\" />\r\n        <item itemvalue=\"Python.Client\" />\r\n      </list>\r\n    </recent_temporary>\r\n  </component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"4b125e54-2be9-48a8-902e-9cc7aee8c5a7\" name=\"Changes\" comment=\"\" />\r\n      <created>1711453014273</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1711453014273</updated>\r\n      <workItem from=\"1711453022637\" duration=\"78156000\" />\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00001\" summary=\"hello_word\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711453362210</created>\r\n      <option name=\"number\" value=\"00001\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00001\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711453362210</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00002\" summary=\"hello_word\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711453520259</created>\r\n      <option name=\"number\" value=\"00002\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00002\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711453520259</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00003\" summary=\"client server basic udp\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711488397637</created>\r\n      <option name=\"number\" value=\"00003\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00003\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711488397637</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00004\" summary=\"first TCP connection\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711721996446</created>\r\n      <option name=\"number\" value=\"00004\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00004\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711721996446</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00005\" summary=\"starting the trivia game\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711812922038</created>\r\n      <option name=\"number\" value=\"00005\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00005\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711812922038</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00006\" summary=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711815787403</created>\r\n      <option name=\"number\" value=\"00006\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00006\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711815787403</updated>\r\n    </task>\r\n    <option name=\"localTasksCounter\" value=\"7\" />\r\n    <servers />\r\n  </component>\r\n  <component name=\"TypeScriptGeneratedFilesManager\">\r\n    <option name=\"version\" value=\"3\" />\r\n  </component>\r\n  <component name=\"Vcs.Log.Tabs.Properties\">\r\n    <option name=\"TAB_STATES\">\r\n      <map>\r\n        <entry key=\"MAIN\">\r\n          <value>\r\n            <State />\r\n          </value>\r\n        </entry>\r\n      </map>\r\n    </option>\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <MESSAGE value=\"hello_word\" />\r\n    <MESSAGE value=\"client server basic udp\" />\r\n    <MESSAGE value=\"first TCP connection\" />\r\n    <MESSAGE value=\"starting the trivia game\" />\r\n    <MESSAGE value=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\" />\r\n  </component>\r\n  <component name=\"XDebuggerManager\">\r\n    <breakpoint-manager>\r\n      <default-breakpoints>\r\n        <breakpoint type=\"python-exception\">\r\n          <properties notifyOnTerminate=\"true\" exception=\"BaseException\">\r\n            <option name=\"notifyOnTerminate\" value=\"true\" />\r\n          </properties>\r\n        </breakpoint>\r\n      </default-breakpoints>\r\n    </breakpoint-manager>\r\n  </component>\r\n  <component name=\"com.intellij.coverage.CoverageDataManagerImpl\">\r\n    <SUITE FILE_PATH=\"coverage/Trivia_King$Client.coverage\" NAME=\"Client Coverage Results\" MODIFIED=\"1712735526122\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"false\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\r\n    <SUITE FILE_PATH=\"coverage/Trivia_King$main.coverage\" NAME=\"main Coverage Results\" MODIFIED=\"1712737611462\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"false\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\r\n  </component>\r\n</project>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+---- a/.idea/workspace.xml	(revision 2f1bbf75756eb9d6fdd4e96183560eba5d9a398e)
+-+++ b/.idea/workspace.xml	(date 1712764901212)
+-@@ -4,9 +4,7 @@
+-     <option name="autoReloadType" value="SELECTIVE" />
+-   </component>
+-   <component name="ChangeListManager">
+--    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection">
+--      <change beforePath="$PROJECT_DIR$/.idea/Trivia_King.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Trivia_King.iml" afterDir="false" />
+--      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+-+    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="adding BOT">
+-       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+-       <change beforePath="$PROJECT_DIR$/Client.py" beforeDir="false" afterPath="$PROJECT_DIR$/Client.py" afterDir="false" />
+-       <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
+-@@ -38,22 +36,22 @@
+-     <option name="hideEmptyMiddlePackages" value="true" />
+-     <option name="showLibraryContents" value="true" />
+-   </component>
+--  <component name="PropertiesComponent"><![CDATA[{
+--  "keyToString": {
+--    "Python.Client.executor": "Run",
+--    "Python.main.executor": "Run",
+--    "RunOnceActivity.OpenProjectViewOnStart": "true",
+--    "RunOnceActivity.ShowReadmeOnStart": "true",
+--    "git-widget-placeholder": "master",
+--    "node.js.detected.package.eslint": "true",
+--    "node.js.detected.package.tslint": "true",
+--    "node.js.selected.package.eslint": "(autodetect)",
+--    "node.js.selected.package.tslint": "(autodetect)",
+--    "nodejs_package_manager_path": "npm",
+--    "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
+--    "vue.rearranger.settings.migration": "true"
+-+  <component name="PropertiesComponent">{
+-+  &quot;keyToString&quot;: {
+-+    &quot;Python.Client.executor&quot;: &quot;Run&quot;,
+-+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+-+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+-+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+-+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+-+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+-+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+-+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+-+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+-+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+-+    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,
+-+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+-   }
+--}]]></component>
+-+}</component>
+-   <component name="RunManager" selected="Python.main">
+-     <configuration name="Client" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+-       <module name="Trivia_King" />
+-@@ -111,7 +109,8 @@
+-   <component name="SharedIndexes">
+-     <attachedChunks>
+-       <set>
+--        <option value="bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11" />
+-+        <option value="bundled-js-predefined-1d06a55b98c1-74d2a5396914-JavaScript-PY-241.14494.241" />
+-+        <option value="bundled-python-sdk-0509580d9d50-28c9f5db9ffe-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.14494.241" />
+-       </set>
+-     </attachedChunks>
+-   </component>
+-@@ -124,6 +123,7 @@
+-       <option name="presentableId" value="Default" />
+-       <updated>1711453014273</updated>
+-       <workItem from="1711453022637" duration="78156000" />
+-+      <workItem from="1712762155623" duration="2423000" />
+-     </task>
+-     <task id="LOCAL‎-00001" summary="hello_word">
+-       <option name="closed" value="true" />
+-@@ -173,7 +173,15 @@
+-       <option name="project" value="LOCAL‎" />
+-       <updated>1711815787403</updated>
+-     </task>
+--    <option name="localTasksCounter" value="7" />
+-+    <task id="LOCAL‎-00007" summary="adding BOT">
+-+      <option name="closed" value="true" />
+-+      <created>1712738412930</created>
+-+      <option name="number" value="00007" />
+-+      <option name="presentableId" value="LOCAL‎-00007" />
+-+      <option name="project" value="LOCAL‎" />
+-+      <updated>1712738412931</updated>
+-+    </task>
+-+    <option name="localTasksCounter" value="8" />
+-     <servers />
+-   </component>
+-   <component name="TypeScriptGeneratedFilesManager">
+-@@ -196,7 +204,8 @@
+-     <MESSAGE value="first TCP connection" />
+-     <MESSAGE value="starting the trivia game" />
+-     <MESSAGE value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
+--    <option name="LAST_COMMIT_MESSAGE" value="functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection" />
+-+    <MESSAGE value="adding BOT" />
+-+    <option name="LAST_COMMIT_MESSAGE" value="adding BOT" />
+-   </component>
+-   <component name="XDebuggerManager">
+-     <breakpoint-manager>
+-@@ -211,6 +220,6 @@
+-   </component>
+-   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+-     <SUITE FILE_PATH="coverage/Trivia_King$Client.coverage" NAME="Client Coverage Results" MODIFIED="1712735526122" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+--    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1712737611462" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+-+    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1712763559553" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+-   </component>
+- </project>
+-\ No newline at end of file
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml b/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
++++ /dev/null	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
+@@ -1,4 +0,0 @@
+-<changelist name="Uncommitted_changes_before_Update_at_10_04_2024_19_01_[Changes]" date="1712765110722" recycled="true" deleted="true">
+-  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01_[Changes]/shelved.patch" />
+-  <option name="DESCRIPTION" value="Uncommitted changes before Update at 10/04/2024 19:01 [Changes]" />
+-</changelist>
+\ No newline at end of file
+Index: server.log
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>2024-04-19 18:42:45,878:INFO:Game started at 2024-04-19 18:42:45.877309\r\n2024-04-19 18:43:00,886:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 18:43:45,112:INFO:Game started at 2024-04-19 18:43:45.111913\r\n2024-04-19 18:43:53,080:INFO:Game started at 2024-04-19 18:43:53.080854\r\n2024-04-19 18:44:08,095:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 18:44:10,289:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 18:44:10,290:INFO:Team barak connected from 192.168.80.1\r\n2024-04-19 18:44:26,306:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 18:44:26,306:INFO:Only one player connected, game canceled.\r\n2024-04-19 18:44:26,306:ERROR:Error closing connection for barak: [WinError 10054] An existing connection was forcibly closed by the remote host\r\n2024-04-19 18:44:26,308:INFO:Game canceled due to insufficient players.\r\n2024-04-19 19:41:11,268:INFO:Game started at 2024-04-19 19:41:11.268750\r\n2024-04-19 19:41:11,274:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:41:11,275:INFO:Team barak connected from 192.168.1.3\r\n2024-04-19 19:41:12,284:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:41:12,285:INFO:Team oded connected from 192.168.1.3\r\n2024-04-19 19:41:28,303:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:41:28,303:INFO:Start new game at 2024-04-19 19:41:28.303737\r\n2024-04-19 19:41:28,303:INFO:The asked question of round 1 is The New York Knicks won the NBA Championship in 2012.\r\n2024-04-19 19:41:38,258:INFO:Received answer 'f' from oded at 2024-04-19 19:41:38.258627\r\n2024-04-19 19:41:38,258:INFO:oded is correct with the answer of f!\r\n2024-04-19 19:41:43,309:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:41:43,310:INFO:Sending message to client barak about no answer at 2024-04-19 19:41:43.310612\r\n2024-04-19 19:41:43,312:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:41:43,312:INFO:Game over!\r\nCongratulations to the winner: oded.\r\n\r\n2024-04-19 19:41:43,313:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:41:43,313:INFO:Game started at 2024-04-19 19:41:43.313615\r\n2024-04-19 19:41:44,322:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:41:44,322:INFO:Team barak connected from 192.168.1.3\r\n2024-04-19 19:41:45,324:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:41:45,326:INFO:Team oded connected from 192.168.1.3\r\n2024-04-19 19:41:50,381:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:41:50,382:WARNING:Duplicate name attempt from 192.168.80.1 denied.\r\n2024-04-19 19:41:51,390:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:41:51,391:WARNING:Duplicate name attempt from 192.168.80.1 denied.\r\n2024-04-19 19:41:52,408:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:41:52,420:WARNING:Duplicate name attempt from 192.168.80.1 denied.\r\n2024-04-19 19:41:53,430:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:41:53,445:WARNING:Duplicate name attempt from 192.168.80.1 denied.\r\n2024-04-19 19:42:06,827:INFO:Game started at 2024-04-19 19:42:06.826613\r\n2024-04-19 19:42:06,833:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:42:06,833:INFO:Team barak connected from 192.168.1.3\r\n2024-04-19 19:42:07,840:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:42:07,844:INFO:Team oded connected from 192.168.1.3\r\n2024-04-19 19:42:18,866:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:42:18,866:INFO:Start new game at 2024-04-19 19:42:18.866663\r\n2024-04-19 19:42:18,866:INFO:The asked question of round 1 is The Miami Heat was established in 1970.\r\n2024-04-19 19:42:22,831:INFO:Received answer 'f' from oded at 2024-04-19 19:42:22.831813\r\n2024-04-19 19:42:22,831:INFO:oded is correct with the answer of f!\r\n2024-04-19 19:42:27,849:INFO:Received answer 'f' from barak at 2024-04-19 19:42:27.849986\r\n2024-04-19 19:42:27,849:INFO:barak is correct with the answer of f!\r\n2024-04-19 19:42:27,850:INFO:Start new game at 2024-04-19 19:42:27.850982\r\n2024-04-19 19:42:27,850:INFO:The asked question of round 1 is LeBron James has never won an NBA MVP award.\r\n2024-04-19 19:42:34,266:INFO:Received answer 'f' from barak at 2024-04-19 19:42:34.266615\r\n2024-04-19 19:42:34,266:INFO:barak is correct with the answer of f!\r\n2024-04-19 19:42:37,704:INFO:Received answer 't' from oded at 2024-04-19 19:42:37.704799\r\n2024-04-19 19:42:37,704:INFO:oded is incorrect the answer of t!\r\n2024-04-19 19:42:37,705:INFO:Start new game at 2024-04-19 19:42:37.705798\r\n2024-04-19 19:42:37,705:INFO:The asked question of round 1 is Shaquille O'Neal won his first NBA championship in 2000.\r\n2024-04-19 19:42:47,721:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:42:47,722:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:42:47,722:INFO:No one answered at round 1. Preparing another question...\r\n2024-04-19 19:42:47,722:INFO:sending message to client about no answer at 2024-04-19 19:42:47.722791\r\n2024-04-19 19:42:47,723:INFO:sending message to client about no answer at 2024-04-19 19:42:47.723791\r\n2024-04-19 19:42:47,724:INFO:The asked question of round 2 is Tim Duncan won five NBA championships with the San Antonio Spurs.\r\n2024-04-19 19:42:49,713:ERROR:Error while receiving answer from oded: [WinError 10054] An existing connection was forcibly closed by the remote host\r\n2024-04-19 19:42:49,713:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:42:50,320:ERROR:Error while receiving answer from barak: [WinError 10054] An existing connection was forcibly closed by the remote host\r\n2024-04-19 19:42:50,320:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:42:50,320:INFO:Sending message to client barak about no answer at 2024-04-19 19:42:50.320721\r\n2024-04-19 19:42:50,320:ERROR:Client barak disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket\r\n2024-04-19 19:42:50,320:INFO:Sending message to client oded about no answer at 2024-04-19 19:42:50.320721\r\n2024-04-19 19:42:50,321:ERROR:Client oded disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket\r\n2024-04-19 19:42:50,321:INFO:Game over! No winner.\r\n\r\n2024-04-19 19:42:50,321:INFO:Game started at 2024-04-19 19:42:50.321721\r\n2024-04-19 19:43:00,333:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:43:10,347:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:43:20,355:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:43:33,756:INFO:Game started at 2024-04-19 19:43:33.756641\r\n2024-04-19 19:43:33,764:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:43:33,764:INFO:Team oded connected from 192.168.1.3\r\n2024-04-19 19:43:34,764:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:43:34,765:INFO:Team barak connected from 192.168.1.3\r\n2024-04-19 19:43:45,783:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:43:45,783:INFO:Start new game at 2024-04-19 19:43:45.783730\r\n2024-04-19 19:43:45,784:INFO:The asked question of round 1 is Tim Duncan won five NBA championships with the San Antonio Spurs.\r\n2024-04-19 19:43:47,674:INFO:Received answer 'f' from barak at 2024-04-19 19:43:47.674427\r\n2024-04-19 19:43:47,674:INFO:barak is incorrect the answer of f!\r\n2024-04-19 19:43:49,657:INFO:Received answer 't' from oded at 2024-04-19 19:43:49.657903\r\n2024-04-19 19:43:49,657:INFO:oded is correct with the answer of t!\r\n2024-04-19 19:43:49,657:INFO:Sending message to client barak about incorrect answer at 2024-04-19 19:43:49.657903\r\n2024-04-19 19:43:49,658:INFO:Game over!\r\nCongratulations to the winner: oded.\r\n\r\n2024-04-19 19:43:49,658:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:43:49,658:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:43:49,658:INFO:Game started at 2024-04-19 19:43:49.658906\r\n2024-04-19 19:43:50,679:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:43:50,681:INFO:Team oded connected from 192.168.1.3\r\n2024-04-19 19:43:51,684:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:43:51,685:INFO:Team barak connected from 192.168.1.3\r\n2024-04-19 19:44:02,710:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:44:02,711:INFO:Start new game at 2024-04-19 19:44:02.710152\r\n2024-04-19 19:44:02,711:INFO:The asked question of round 1 is The Golden State Warriors broke the record for the most wins in a season in 2016.\r\n2024-04-19 19:44:04,638:INFO:Received answer 'f' from oded at 2024-04-19 19:44:04.638059\r\n2024-04-19 19:44:04,638:INFO:oded is incorrect the answer of f!\r\n2024-04-19 19:44:12,726:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:44:12,726:INFO:Sending message to client barak about no answer at 2024-04-19 19:44:12.726702\r\n2024-04-19 19:44:12,727:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:44:12,727:INFO:All players answered incorrectly at round 1. Preparing another question...\r\n2024-04-19 19:44:12,727:INFO:Game over!\r\nCongratulations to the winner: oded.\r\n\r\n2024-04-19 19:44:12,728:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:44:12,728:INFO:Game started at 2024-04-19 19:44:12.728222\r\n2024-04-19 19:44:13,744:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:44:13,745:INFO:Team barak connected from 192.168.80.1\r\n2024-04-19 19:44:14,753:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:44:14,754:INFO:Team oded connected from 192.168.80.1\r\n2024-04-19 19:44:25,770:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:44:25,770:INFO:Start new game at 2024-04-19 19:44:25.770434\r\n2024-04-19 19:44:25,770:INFO:The asked question of round 1 is Michael Jordan was drafted by the Portland Trail Blazers.\r\n2024-04-19 19:44:35,771:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:44:35,786:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:45:43,859:INFO:Game started at 2024-04-19 19:45:43.859738\r\n2024-04-19 19:45:46,884:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:45:46,885:INFO:Team barak connected from 192.168.80.1\r\n2024-04-19 19:45:49,901:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:45:49,903:INFO:Team oded connected from 192.168.80.1\r\n2024-04-19 19:46:00,923:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:46:00,923:INFO:Start new game at 2024-04-19 19:46:00.923084\r\n2024-04-19 19:46:00,923:INFO:The asked question of round 1 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.\r\n2024-04-19 19:46:05,023:INFO:Received answer 'f' from oded at 2024-04-19 19:46:05.023931\r\n2024-04-19 19:46:05,024:INFO:oded is correct with the answer of f!\r\n2024-04-19 19:46:10,930:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:46:10,930:INFO:Sending message to client barak about no answer at 2024-04-19 19:46:10.930800\r\n2024-04-19 19:46:10,930:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:46:10,930:INFO:Game over!\r\nCongratulations to the winner: oded.\r\n\r\n2024-04-19 19:46:10,932:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:46:10,932:INFO:Game started at 2024-04-19 19:46:10.932264\r\n2024-04-19 19:46:11,940:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:46:11,941:INFO:Team barak connected from 192.168.1.3\r\n2024-04-19 19:46:12,954:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:46:12,954:INFO:Team oded connected from 192.168.1.3\r\n2024-04-19 19:46:23,962:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:46:23,962:INFO:Start new game at 2024-04-19 19:46:23.962496\r\n2024-04-19 19:46:23,962:INFO:The asked question of round 1 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.\r\n2024-04-19 19:46:33,972:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:46:33,973:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:46:33,973:INFO:No one answered at round 1. Preparing another question...\r\n2024-04-19 19:46:33,973:INFO:sending message to client about no answer at 2024-04-19 19:46:33.973180\r\n2024-04-19 19:46:33,974:INFO:sending message to client about no answer at 2024-04-19 19:46:33.974184\r\n2024-04-19 19:46:33,974:INFO:The asked question of round 2 is Kareem Abdul-Jabbar scored 100 points in a single NBA game.\r\n2024-04-19 19:46:38,146:INFO:Received answer 't' from oded at 2024-04-19 19:46:38.146423\r\n2024-04-19 19:46:38,146:INFO:oded is incorrect the answer of t!\r\n2024-04-19 19:46:43,977:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:46:43,978:INFO:Sending message to client barak about no answer at 2024-04-19 19:46:43.978512\r\n2024-04-19 19:46:43,979:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:46:43,980:INFO:All players answered incorrectly at round 2. Preparing another question...\r\n2024-04-19 19:46:43,980:INFO:Game over!\r\nCongratulations to the winner: oded.\r\n\r\n2024-04-19 19:46:43,981:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:46:43,981:INFO:Game started at 2024-04-19 19:46:43.981760\r\n2024-04-19 19:46:45,002:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:46:45,003:INFO:Team barak connected from 192.168.80.1\r\n2024-04-19 19:46:46,009:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:46:46,009:INFO:Team oded connected from 192.168.80.1\r\n2024-04-19 19:56:39,126:INFO:Game started at 2024-04-19 19:56:39.126536\r\n2024-04-19 19:56:45,184:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:56:45,185:INFO:Team oded connected from 192.168.80.1\r\n2024-04-19 19:56:47,192:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:56:47,192:INFO:Team barak connected from 192.168.1.3\r\n2024-04-19 19:56:58,198:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:56:58,199:INFO:Start new game at 2024-04-19 19:56:58.199219\r\n2024-04-19 19:56:58,199:INFO:The asked question of round 1 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.\r\n2024-04-19 19:57:02,649:INFO:Received answer 'f' from barak at 2024-04-19 19:57:02.649758\r\n2024-04-19 19:57:02,649:INFO:barak is correct with the answer of f!\r\n2024-04-19 19:57:08,208:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:57:08,209:INFO:Sending message to client oded about no answer at 2024-04-19 19:57:08.209408\r\n2024-04-19 19:57:08,210:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:57:08,211:INFO:Game over!\r\nCongratulations to the winner: barak.\r\n\r\n2024-04-19 19:57:08,212:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:57:08,213:INFO:Game started at 2024-04-19 19:57:08.213375\r\n2024-04-19 19:57:09,230:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:57:09,231:INFO:Team barak connected from 192.168.80.1\r\n2024-04-19 19:57:10,235:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:57:10,235:INFO:Team oded connected from 192.168.80.1\r\n2024-04-19 19:57:21,240:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:57:21,240:INFO:Start new game at 2024-04-19 19:57:21.240577\r\n2024-04-19 19:57:21,240:INFO:The asked question of round 1 is Michael Jordan won 6 NBA championships.\r\n2024-04-19 19:57:24,520:INFO:Received answer 'f' from oded at 2024-04-19 19:57:24.519013\r\n2024-04-19 19:57:24,520:INFO:oded is incorrect the answer of f!\r\n2024-04-19 19:57:31,260:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:57:31,261:INFO:Sending message to client barak about no answer at 2024-04-19 19:57:31.261249\r\n2024-04-19 19:57:31,263:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:57:31,263:INFO:Sending message to client oded about incorrect answer at 2024-04-19 19:57:31.263244\r\n2024-04-19 19:57:31,264:INFO:Game over! No winner.\r\n\r\n2024-04-19 19:57:31,264:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:57:31,265:INFO:Game started at 2024-04-19 19:57:31.265245\r\n2024-04-19 19:57:32,279:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:57:32,292:INFO:Team barak connected from 192.168.80.1\r\n2024-04-19 19:57:33,295:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 19:57:33,295:INFO:Team oded connected from 192.168.1.3\r\n2024-04-19 19:57:44,312:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:57:44,313:INFO:Start new game at 2024-04-19 19:57:44.312685\r\n2024-04-19 19:57:44,313:INFO:The asked question of round 1 is The Golden State Warriors broke the record for the most wins in a season in 2016.\r\n2024-04-19 19:57:54,321:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:57:54,322:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:57:54,323:INFO:No one answered at round 1. Preparing another question...\r\n2024-04-19 19:57:54,323:INFO:sending message to client about no answer at 2024-04-19 19:57:54.323143\r\n2024-04-19 19:57:54,324:INFO:sending message to client about no answer at 2024-04-19 19:57:54.324142\r\n2024-04-19 19:57:54,324:INFO:The asked question of round 2 is LeBron James was drafted first overall in 2003.\r\n2024-04-19 19:58:04,330:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:58:04,345:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:58:04,345:INFO:No one answered at round 2. Preparing another question...\r\n2024-04-19 19:58:04,346:INFO:sending message to client about no answer at 2024-04-19 19:58:04.346818\r\n2024-04-19 19:58:04,346:INFO:sending message to client about no answer at 2024-04-19 19:58:04.346818\r\n2024-04-19 19:58:04,346:INFO:The asked question of round 3 is Michael Jordan was drafted by the Portland Trail Blazers.\r\n2024-04-19 19:58:14,352:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:58:14,352:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:58:14,353:INFO:No one answered at round 3. Preparing another question...\r\n2024-04-19 19:58:14,354:INFO:sending message to client about no answer at 2024-04-19 19:58:14.354356\r\n2024-04-19 19:58:14,354:INFO:sending message to client about no answer at 2024-04-19 19:58:14.354356\r\n2024-04-19 19:58:14,355:INFO:The asked question of round 4 is The Detroit Pistons have never won an NBA championship.\r\n2024-04-19 19:58:24,363:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:58:24,363:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:58:24,363:INFO:No one answered at round 4. Preparing another question...\r\n2024-04-19 19:58:24,364:INFO:sending message to client about no answer at 2024-04-19 19:58:24.364718\r\n2024-04-19 19:58:24,364:INFO:sending message to client about no answer at 2024-04-19 19:58:24.364718\r\n2024-04-19 19:58:24,364:INFO:The asked question of round 5 is The Boston Celtics have the most NBA championships.\r\n2024-04-19 19:58:31,814:ERROR:Error while receiving answer from barak: [WinError 10054] An existing connection was forcibly closed by the remote host\r\n2024-04-19 19:58:31,815:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 19:58:33,307:ERROR:Error while receiving answer from oded: [WinError 10054] An existing connection was forcibly closed by the remote host\r\n2024-04-19 19:58:33,308:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 19:58:33,308:INFO:Sending message to client barak about no answer at 2024-04-19 19:58:33.308279\r\n2024-04-19 19:58:33,309:ERROR:Client barak disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket\r\n2024-04-19 19:58:33,309:INFO:Sending message to client oded about no answer at 2024-04-19 19:58:33.309300\r\n2024-04-19 19:58:33,309:ERROR:Client oded disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket\r\n2024-04-19 19:58:33,309:INFO:Game over! No winner.\r\n\r\n2024-04-19 19:58:33,309:INFO:Game started at 2024-04-19 19:58:33.309300\r\n2024-04-19 19:58:37,355:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:58:37,356:INFO:Team oded connected from 192.168.80.1\r\n2024-04-19 19:58:51,962:INFO:Game started at 2024-04-19 19:58:51.962899\r\n2024-04-19 19:58:54,998:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:58:54,998:INFO:Team oded connected from 192.168.80.1\r\n2024-04-19 19:58:58,036:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 19:58:58,036:INFO:Team barak connected from 192.168.80.1\r\n2024-04-19 19:59:09,052:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 19:59:09,054:INFO:Start new game at 2024-04-19 19:59:09.054046\r\n2024-04-19 19:59:09,054:INFO:The asked question of round 1 is The Detroit Pistons have never won an NBA championship.\r\n2024-04-19 19:59:19,068:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:59:19,069:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:59:19,069:INFO:No one answered at round 1. Preparing another question...\r\n2024-04-19 19:59:19,070:INFO:sending message to client about no answer at 2024-04-19 19:59:19.070129\r\n2024-04-19 19:59:19,070:INFO:sending message to client about no answer at 2024-04-19 19:59:19.070129\r\n2024-04-19 19:59:19,070:INFO:The asked question of round 2 is The Toronto Raptors won their first NBA Championship in 2019.\r\n2024-04-19 19:59:29,078:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:59:29,078:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:59:29,079:INFO:No one answered at round 2. Preparing another question...\r\n2024-04-19 19:59:29,080:INFO:sending message to client about no answer at 2024-04-19 19:59:29.080204\r\n2024-04-19 19:59:29,080:INFO:sending message to client about no answer at 2024-04-19 19:59:29.080204\r\n2024-04-19 19:59:29,081:INFO:The asked question of round 3 is Michael Jordan won 6 NBA championships.\r\n2024-04-19 19:59:39,087:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:59:39,088:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:59:39,088:INFO:No one answered at round 3. Preparing another question...\r\n2024-04-19 19:59:39,088:INFO:sending message to client about no answer at 2024-04-19 19:59:39.088213\r\n2024-04-19 19:59:39,089:INFO:sending message to client about no answer at 2024-04-19 19:59:39.089389\r\n2024-04-19 19:59:39,090:INFO:The asked question of round 4 is Shaquille O'Neal won his first NBA championship in 2000.\r\n2024-04-19 19:59:49,093:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:59:49,094:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:59:49,095:INFO:No one answered at round 4. Preparing another question...\r\n2024-04-19 19:59:49,095:INFO:sending message to client about no answer at 2024-04-19 19:59:49.095050\r\n2024-04-19 19:59:49,096:INFO:sending message to client about no answer at 2024-04-19 19:59:49.096073\r\n2024-04-19 19:59:49,096:INFO:The asked question of round 5 is The Los Angeles Lakers have won 17 NBA championships.\r\n2024-04-19 19:59:59,100:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 19:59:59,101:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 19:59:59,102:INFO:No one answered at round 5. Preparing another question...\r\n2024-04-19 19:59:59,102:INFO:sending message to client about no answer at 2024-04-19 19:59:59.102074\r\n2024-04-19 19:59:59,103:INFO:sending message to client about no answer at 2024-04-19 19:59:59.103176\r\n2024-04-19 19:59:59,103:INFO:The asked question of round 6 is The Golden State Warriors broke the record for the most wins in a season in 2016.\r\n2024-04-19 20:00:09,115:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:00:09,115:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:00:09,116:INFO:No one answered at round 6. Preparing another question...\r\n2024-04-19 20:00:09,116:INFO:sending message to client about no answer at 2024-04-19 20:00:09.116213\r\n2024-04-19 20:00:09,116:INFO:sending message to client about no answer at 2024-04-19 20:00:09.116213\r\n2024-04-19 20:00:09,117:INFO:The asked question of round 7 is LeBron James was drafted first overall in 2003.\r\n2024-04-19 20:00:19,128:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:00:19,128:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:00:19,128:INFO:No one answered at round 7. Preparing another question...\r\n2024-04-19 20:00:19,129:INFO:sending message to client about no answer at 2024-04-19 20:00:19.129176\r\n2024-04-19 20:00:19,129:INFO:sending message to client about no answer at 2024-04-19 20:00:19.129176\r\n2024-04-19 20:00:19,129:INFO:The asked question of round 8 is Shaquille O'Neal won his first NBA championship in 2000.\r\n2024-04-19 20:00:29,131:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:00:29,146:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:00:29,146:INFO:No one answered at round 8. Preparing another question...\r\n2024-04-19 20:00:29,147:INFO:sending message to client about no answer at 2024-04-19 20:00:29.147048\r\n2024-04-19 20:00:29,148:INFO:sending message to client about no answer at 2024-04-19 20:00:29.148052\r\n2024-04-19 20:00:29,151:INFO:The asked question of round 9 is Allen Iverson won two NBA championships.\r\n2024-04-19 20:00:39,163:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:00:39,163:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:00:39,163:INFO:No one answered at round 9. Preparing another question...\r\n2024-04-19 20:00:39,164:INFO:sending message to client about no answer at 2024-04-19 20:00:39.164497\r\n2024-04-19 20:00:39,164:INFO:sending message to client about no answer at 2024-04-19 20:00:39.164497\r\n2024-04-19 20:00:39,164:INFO:The asked question of round 10 is The New York Knicks won the NBA Championship in 2012.\r\n2024-04-19 20:00:49,181:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:00:49,182:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:00:49,183:INFO:No one answered at round 10. Preparing another question...\r\n2024-04-19 20:00:49,183:INFO:sending message to client about no answer at 2024-04-19 20:00:49.183294\r\n2024-04-19 20:00:49,184:INFO:sending message to client about no answer at 2024-04-19 20:00:49.184293\r\n2024-04-19 20:00:49,185:INFO:The asked question of round 11 is The Los Angeles Lakers have won 17 NBA championships.\r\n2024-04-19 20:00:59,194:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:00:59,194:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:00:59,196:INFO:No one answered at round 11. Preparing another question...\r\n2024-04-19 20:00:59,196:INFO:sending message to client about no answer at 2024-04-19 20:00:59.196133\r\n2024-04-19 20:00:59,196:INFO:sending message to client about no answer at 2024-04-19 20:00:59.196133\r\n2024-04-19 20:00:59,196:INFO:The asked question of round 12 is The Boston Celtics have the most NBA championships.\r\n2024-04-19 20:01:09,211:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:01:09,211:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:01:09,212:INFO:No one answered at round 12. Preparing another question...\r\n2024-04-19 20:01:09,212:INFO:sending message to client about no answer at 2024-04-19 20:01:09.212237\r\n2024-04-19 20:01:09,212:INFO:sending message to client about no answer at 2024-04-19 20:01:09.212237\r\n2024-04-19 20:01:09,213:INFO:The asked question of round 13 is Tim Duncan won five NBA championships with the San Antonio Spurs.\r\n2024-04-19 20:01:19,226:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:01:19,226:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:01:19,227:INFO:No one answered at round 13. Preparing another question...\r\n2024-04-19 20:01:19,227:INFO:sending message to client about no answer at 2024-04-19 20:01:19.227904\r\n2024-04-19 20:01:19,228:INFO:sending message to client about no answer at 2024-04-19 20:01:19.228904\r\n2024-04-19 20:01:19,228:INFO:The asked question of round 14 is LeBron James has never won an NBA MVP award.\r\n2024-04-19 20:01:29,244:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:01:29,244:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:01:29,245:INFO:No one answered at round 14. Preparing another question...\r\n2024-04-19 20:01:29,245:INFO:sending message to client about no answer at 2024-04-19 20:01:29.245712\r\n2024-04-19 20:01:29,246:INFO:sending message to client about no answer at 2024-04-19 20:01:29.245712\r\n2024-04-19 20:01:29,246:INFO:The asked question of round 15 is The Toronto Raptors won their first NBA Championship in 2019.\r\n2024-04-19 20:01:39,262:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:01:39,263:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:01:39,264:INFO:No one answered at round 15. Preparing another question...\r\n2024-04-19 20:01:39,265:INFO:sending message to client about no answer at 2024-04-19 20:01:39.264279\r\n2024-04-19 20:01:39,266:INFO:sending message to client about no answer at 2024-04-19 20:01:39.265304\r\n2024-04-19 20:01:39,266:INFO:The asked question of round 16 is Allen Iverson won two NBA championships.\r\n2024-04-19 20:01:49,276:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:01:49,277:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:01:49,278:INFO:No one answered at round 16. Preparing another question...\r\n2024-04-19 20:01:49,279:INFO:sending message to client about no answer at 2024-04-19 20:01:49.279373\r\n2024-04-19 20:01:49,279:INFO:sending message to client about no answer at 2024-04-19 20:01:49.279886\r\n2024-04-19 20:01:49,283:INFO:The asked question of round 17 is Kobe Bryant spent his entire career with the Los Angeles Lakers.\r\n2024-04-19 20:01:53,384:ERROR:Error while receiving answer from barak: [WinError 10054] An existing connection was forcibly closed by the remote host\r\n2024-04-19 20:01:53,384:INFO:Disconnected: barak has been removed from the game.\r\n2024-04-19 20:01:56,985:ERROR:Error while receiving answer from oded: [WinError 10054] An existing connection was forcibly closed by the remote host\r\n2024-04-19 20:01:56,985:INFO:Disconnected: oded has been removed from the game.\r\n2024-04-19 20:07:07,262:INFO:Game started at 2024-04-19 20:07:07.262450\r\n2024-04-19 20:07:17,864:INFO:Game started at 2024-04-19 20:07:17.864015\r\n2024-04-19 20:07:23,911:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 20:07:23,911:INFO:Team oded connected from 192.168.80.1\r\n2024-04-19 20:07:25,937:INFO:New client 192.168.80.1 connected.\r\n2024-04-19 20:07:25,938:INFO:Team barak connected from 192.168.80.1\r\n2024-04-19 20:07:27,951:INFO:New client 192.168.1.3 connected.\r\n2024-04-19 20:07:27,952:INFO:Team amit connected from 192.168.1.3\r\n2024-04-19 20:07:38,971:ERROR:Accepting new client timed out: timed out\r\n2024-04-19 20:07:38,972:INFO:Start new game at 2024-04-19 20:07:38.972782\r\n2024-04-19 20:07:38,972:INFO:The asked question of round 1 is Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.\r\n2024-04-19 20:07:41,644:INFO:Received answer 'f' from amit at 2024-04-19 20:07:41.644525\r\n2024-04-19 20:07:41,644:INFO:amit is incorrect the answer of f!\r\n2024-04-19 20:07:44,216:INFO:Received answer 'f' from barak at 2024-04-19 20:07:44.216214\r\n2024-04-19 20:07:44,217:INFO:barak is incorrect the answer of f!\r\n2024-04-19 20:07:46,121:INFO:Received answer 'f' from oded at 2024-04-19 20:07:46.121977\r\n2024-04-19 20:07:46,121:INFO:oded is incorrect the answer of f!\r\n2024-04-19 20:07:46,121:INFO:All players answered incorrectly at round 1. Preparing another question...\r\n2024-04-19 20:07:46,122:INFO:The asked question of round 2 is LeBron James has never won an NBA MVP award.\r\n2024-04-19 20:07:52,112:INFO:Received answer 'f' from oded at 2024-04-19 20:07:52.112121\r\n2024-04-19 20:07:52,113:INFO:oded is correct with the answer of f!\r\n2024-04-19 20:07:53,635:INFO:Received answer 'f' from barak at 2024-04-19 20:07:53.635762\r\n2024-04-19 20:07:53,636:INFO:barak is correct with the answer of f!\r\n2024-04-19 20:07:55,432:INFO:Received answer 't' from amit at 2024-04-19 20:07:55.432735\r\n2024-04-19 20:07:55,432:INFO:amit is incorrect the answer of t!\r\n2024-04-19 20:07:55,432:INFO:Sending message to client amit about incorrect answer at 2024-04-19 20:07:55.432735\r\n2024-04-19 20:07:55,433:INFO:The asked question of round 2 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.\r\n2024-04-19 20:08:05,441:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:08:05,441:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:08:05,441:INFO:No one answered at round 2. Preparing another question...\r\n2024-04-19 20:08:05,442:INFO:sending message to client about no answer at 2024-04-19 20:08:05.442972\r\n2024-04-19 20:08:05,443:INFO:sending message to client about no answer at 2024-04-19 20:08:05.443974\r\n2024-04-19 20:08:05,443:INFO:sending demo message to inactive client oded at 2024-04-19 20:08:05.443974\r\n2024-04-19 20:08:05,444:INFO:sending demo message to inactive client barak at 2024-04-19 20:08:05.444970\r\n2024-04-19 20:08:05,444:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:05.444970\r\n2024-04-19 20:08:05,444:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:05.444970\r\n2024-04-19 20:08:05,444:INFO:The asked question of round 3 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.\r\n2024-04-19 20:08:15,454:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:08:15,454:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:08:15,456:INFO:No one answered at round 3. Preparing another question...\r\n2024-04-19 20:08:15,456:INFO:sending message to client about no answer at 2024-04-19 20:08:15.456108\r\n2024-04-19 20:08:15,457:INFO:sending message to client about no answer at 2024-04-19 20:08:15.457109\r\n2024-04-19 20:08:15,457:INFO:sending demo message to inactive client oded at 2024-04-19 20:08:15.457109\r\n2024-04-19 20:08:15,457:INFO:sending demo message to inactive client barak at 2024-04-19 20:08:15.457109\r\n2024-04-19 20:08:15,458:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:15.457109\r\n2024-04-19 20:08:15,458:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:15.458103\r\n2024-04-19 20:08:15,458:INFO:The asked question of round 4 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.\r\n2024-04-19 20:08:25,479:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:08:25,479:INFO:Timeout occurred for barak, no response received.\r\n2024-04-19 20:08:25,479:INFO:No one answered at round 4. Preparing another question...\r\n2024-04-19 20:08:25,480:INFO:sending message to client about no answer at 2024-04-19 20:08:25.480262\r\n2024-04-19 20:08:25,480:INFO:sending message to client about no answer at 2024-04-19 20:08:25.480262\r\n2024-04-19 20:08:25,480:INFO:sending demo message to inactive client oded at 2024-04-19 20:08:25.480262\r\n2024-04-19 20:08:25,481:INFO:sending demo message to inactive client barak at 2024-04-19 20:08:25.480262\r\n2024-04-19 20:08:25,481:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:25.481273\r\n2024-04-19 20:08:25,481:INFO:sending demo message to inactive client amit at 2024-04-19 20:08:25.481273\r\n2024-04-19 20:08:25,481:INFO:The asked question of round 5 is Allen Iverson won two NBA championships.\r\n2024-04-19 20:08:35,492:INFO:Timeout occurred for oded, no response received.\r\n2024-04-19 20:08:35,492:INFO:Timeout occurred for barak, no response received.\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/server.log b/server.log
+--- a/server.log	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
++++ b/server.log	(date 1713549435572)
+@@ -417,3 +417,884 @@
+ 2024-04-19 20:08:25,481:INFO:The asked question of round 5 is Allen Iverson won two NBA championships.
+ 2024-04-19 20:08:35,492:INFO:Timeout occurred for oded, no response received.
+ 2024-04-19 20:08:35,492:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:32:05,627:INFO:Game started at 2024-04-19 20:32:05.627677
++2024-04-19 20:32:05,768:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:32:05,769:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:32:16,774:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:32:20,290:INFO:Game started at 2024-04-19 20:32:20.290495
++2024-04-19 20:32:51,627:INFO:Game started at 2024-04-19 20:32:51.627276
++2024-04-19 20:33:02,653:INFO:Game started at 2024-04-19 20:33:02.653092
++2024-04-19 20:33:09,057:INFO:Game started at 2024-04-19 20:33:09.057635
++2024-04-19 20:33:19,059:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:33:25,257:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:33:25,258:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:33:31,380:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:33:31,381:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:33:42,403:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:33:42,403:INFO:Start new game at 2024-04-19 20:33:42.403775
++2024-04-19 20:33:42,403:INFO:The asked question of round 1 is The Miami Heat was established in 1970.
++2024-04-19 20:33:49,581:INFO:Received answer 't' from amit at 2024-04-19 20:33:49.580476
++2024-04-19 20:33:49,581:INFO:amit is incorrect the answer of t!
++2024-04-19 20:33:52,419:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:33:52,419:INFO:Sending message to client barak about no answer at 2024-04-19 20:33:52.419430
++2024-04-19 20:33:52,420:INFO:Disconnected: barak has been removed from the game.
++2024-04-19 20:33:52,421:INFO:Sending message to client amit about incorrect answer at 2024-04-19 20:33:52.421463
++2024-04-19 20:33:52,422:INFO:Game over! No winner.
++
++2024-04-19 20:33:52,423:INFO:Disconnected: amit has been removed from the game.
++2024-04-19 20:33:52,423:INFO:Game started at 2024-04-19 20:33:52.423467
++2024-04-19 20:33:52,423:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:33:52,424:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:33:53,437:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:33:53,438:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:34:04,458:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:34:04,458:INFO:Start new game at 2024-04-19 20:34:04.458330
++2024-04-19 20:34:04,458:INFO:The asked question of round 1 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
++2024-04-19 20:34:11,894:INFO:Received answer 'f' from barak at 2024-04-19 20:34:11.894470
++2024-04-19 20:34:11,894:INFO:barak is correct with the answer of f!
++2024-04-19 20:34:12,063:INFO:Received answer 't' from amit at 2024-04-19 20:34:12.063603
++2024-04-19 20:34:12,063:INFO:amit is incorrect the answer of t!
++2024-04-19 20:34:12,063:INFO:Sending message to client amit about incorrect answer at 2024-04-19 20:34:12.063603
++2024-04-19 20:34:12,064:INFO:Game over!
++Congratulations to the winner: barak.
++
++2024-04-19 20:34:12,064:INFO:Disconnected: amit has been removed from the game.
++2024-04-19 20:34:12,064:INFO:Disconnected: barak has been removed from the game.
++2024-04-19 20:34:12,064:INFO:Game started at 2024-04-19 20:34:12.064603
++2024-04-19 20:34:12,064:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:34:12,077:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:34:13,076:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:34:13,076:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:34:24,094:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:34:24,094:INFO:Start new game at 2024-04-19 20:34:24.094970
++2024-04-19 20:34:24,094:INFO:The asked question of round 1 is The Miami Heat was established in 1970.
++2024-04-19 20:34:27,684:INFO:Received answer 't' from barak at 2024-04-19 20:34:27.684101
++2024-04-19 20:34:27,685:INFO:barak is incorrect the answer of t!
++2024-04-19 20:34:34,104:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:34:34,104:INFO:Sending message to client amit about no answer at 2024-04-19 20:34:34.104859
++2024-04-19 20:34:34,104:INFO:Disconnected: amit has been removed from the game.
++2024-04-19 20:34:34,105:INFO:Sending message to client barak about incorrect answer at 2024-04-19 20:34:34.105857
++2024-04-19 20:34:34,105:INFO:Game over! No winner.
++
++2024-04-19 20:34:34,105:INFO:Disconnected: barak has been removed from the game.
++2024-04-19 20:34:34,106:INFO:Game started at 2024-04-19 20:34:34.106859
++2024-04-19 20:34:34,107:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:34:34,119:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:34:35,115:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:34:35,116:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:34:46,138:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:34:46,138:INFO:Start new game at 2024-04-19 20:34:46.138092
++2024-04-19 20:34:46,139:INFO:The asked question of round 1 is Shaquille O'Neal won his first NBA championship in 2000.
++2024-04-19 20:34:48,703:INFO:Received answer 't' from barak at 2024-04-19 20:34:48.703653
++2024-04-19 20:34:48,703:INFO:barak is correct with the answer of t!
++2024-04-19 20:34:48,823:INFO:Received answer 'f' from amit at 2024-04-19 20:34:48.823207
++2024-04-19 20:34:48,824:INFO:amit is incorrect the answer of f!
++2024-04-19 20:34:48,824:INFO:Sending message to client amit about incorrect answer at 2024-04-19 20:34:48.824107
++2024-04-19 20:34:48,824:INFO:Game over!
++Congratulations to the winner: barak.
++
++2024-04-19 20:34:48,825:INFO:Disconnected: amit has been removed from the game.
++2024-04-19 20:34:48,825:INFO:Disconnected: barak has been removed from the game.
++2024-04-19 20:34:48,825:INFO:Game started at 2024-04-19 20:34:48.825104
++2024-04-19 20:34:48,825:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:34:48,843:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:34:49,840:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:34:49,841:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:35:00,862:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:35:00,862:INFO:Start new game at 2024-04-19 20:35:00.862242
++2024-04-19 20:35:00,862:INFO:The asked question of round 1 is Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.
++2024-04-19 20:35:03,083:INFO:Received answer 't' from amit at 2024-04-19 20:35:03.083867
++2024-04-19 20:35:03,083:INFO:amit is correct with the answer of t!
++2024-04-19 20:35:03,101:INFO:Received answer 't' from barak at 2024-04-19 20:35:03.100183
++2024-04-19 20:35:03,101:INFO:barak is correct with the answer of t!
++2024-04-19 20:35:03,101:INFO:Start new game at 2024-04-19 20:35:03.101183
++2024-04-19 20:35:03,101:INFO:The asked question of round 1 is The New York Knicks won the NBA Championship in 2012.
++2024-04-19 20:35:08,440:INFO:Received answer 't' from barak at 2024-04-19 20:35:08.440497
++2024-04-19 20:35:08,440:INFO:barak is incorrect the answer of t!
++2024-04-19 20:35:08,666:INFO:Received answer 't' from amit at 2024-04-19 20:35:08.666069
++2024-04-19 20:35:08,666:INFO:amit is incorrect the answer of t!
++2024-04-19 20:35:08,667:INFO:Start new game at 2024-04-19 20:35:08.667003
++2024-04-19 20:35:08,667:INFO:The asked question of round 1 is The Boston Celtics have the most NBA championships.
++2024-04-19 20:35:12,662:INFO:Received answer 't' from barak at 2024-04-19 20:35:12.662846
++2024-04-19 20:35:12,663:INFO:barak is correct with the answer of t!
++2024-04-19 20:35:12,948:INFO:Received answer 't' from amit at 2024-04-19 20:35:12.948877
++2024-04-19 20:35:12,948:INFO:amit is correct with the answer of t!
++2024-04-19 20:35:12,949:INFO:Start new game at 2024-04-19 20:35:12.949874
++2024-04-19 20:35:12,949:INFO:The asked question of round 1 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:35:16,977:INFO:Received answer 't' from barak at 2024-04-19 20:35:16.977535
++2024-04-19 20:35:16,977:INFO:barak is correct with the answer of t!
++2024-04-19 20:35:17,154:INFO:Received answer 't' from amit at 2024-04-19 20:35:17.154220
++2024-04-19 20:35:17,155:INFO:amit is correct with the answer of t!
++2024-04-19 20:35:17,155:INFO:Start new game at 2024-04-19 20:35:17.155216
++2024-04-19 20:35:17,155:INFO:The asked question of round 1 is LeBron James has never won an NBA MVP award.
++2024-04-19 20:35:21,129:INFO:Received answer 't' from barak at 2024-04-19 20:35:21.129511
++2024-04-19 20:35:21,129:INFO:barak is incorrect the answer of t!
++2024-04-19 20:35:21,306:INFO:Received answer 'f' from amit at 2024-04-19 20:35:21.306291
++2024-04-19 20:35:21,306:INFO:amit is correct with the answer of f!
++2024-04-19 20:35:21,306:INFO:Start new game at 2024-04-19 20:35:21.306291
++2024-04-19 20:35:21,307:INFO:The asked question of round 1 is Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.
++2024-04-19 20:35:25,327:INFO:Received answer 'f' from barak at 2024-04-19 20:35:25.327787
++2024-04-19 20:35:25,327:INFO:barak is incorrect the answer of f!
++2024-04-19 20:35:25,542:INFO:Received answer 'f' from amit at 2024-04-19 20:35:25.542778
++2024-04-19 20:35:25,542:INFO:amit is incorrect the answer of f!
++2024-04-19 20:35:25,543:INFO:Start new game at 2024-04-19 20:35:25.543788
++2024-04-19 20:35:25,543:INFO:The asked question of round 1 is The Detroit Pistons have never won an NBA championship.
++2024-04-19 20:35:29,472:INFO:Received answer 'f' from barak at 2024-04-19 20:35:29.471480
++2024-04-19 20:35:29,472:INFO:barak is correct with the answer of f!
++2024-04-19 20:35:29,705:INFO:Received answer 't' from amit at 2024-04-19 20:35:29.705181
++2024-04-19 20:35:29,705:INFO:amit is incorrect the answer of t!
++2024-04-19 20:35:29,705:INFO:Start new game at 2024-04-19 20:35:29.705181
++2024-04-19 20:35:29,705:INFO:The asked question of round 1 is The Los Angeles Lakers have won 17 NBA championships.
++2024-04-19 20:35:33,284:INFO:Received answer 't' from barak at 2024-04-19 20:35:33.284642
++2024-04-19 20:35:33,284:INFO:barak is correct with the answer of t!
++2024-04-19 20:35:33,487:INFO:Received answer 'f' from amit at 2024-04-19 20:35:33.487223
++2024-04-19 20:35:33,487:INFO:amit is incorrect the answer of f!
++2024-04-19 20:35:33,488:INFO:Start new game at 2024-04-19 20:35:33.487223
++2024-04-19 20:35:33,488:INFO:The asked question of round 1 is The Detroit Pistons have never won an NBA championship.
++2024-04-19 20:35:37,977:INFO:Received answer 'f' from barak at 2024-04-19 20:35:37.977620
++2024-04-19 20:35:37,978:INFO:barak is correct with the answer of f!
++2024-04-19 20:35:38,169:INFO:Received answer 't' from amit at 2024-04-19 20:35:38.169388
++2024-04-19 20:35:38,170:INFO:amit is incorrect the answer of t!
++2024-04-19 20:35:38,170:INFO:Start new game at 2024-04-19 20:35:38.170388
++2024-04-19 20:35:38,170:INFO:The asked question of round 1 is The Los Angeles Lakers have won 17 NBA championships.
++2024-04-19 20:35:41,533:INFO:Received answer 'f' from barak at 2024-04-19 20:35:41.532358
++2024-04-19 20:35:41,533:INFO:barak is incorrect the answer of f!
++2024-04-19 20:35:41,681:INFO:Received answer 't' from amit at 2024-04-19 20:35:41.681491
++2024-04-19 20:35:41,681:INFO:amit is correct with the answer of t!
++2024-04-19 20:35:41,681:INFO:Start new game at 2024-04-19 20:35:41.681491
++2024-04-19 20:35:41,681:INFO:The asked question of round 1 is Michael Jordan was drafted by the Portland Trail Blazers.
++2024-04-19 20:35:44,561:INFO:Received answer 'f' from barak at 2024-04-19 20:35:44.561423
++2024-04-19 20:35:44,562:INFO:barak is correct with the answer of f!
++2024-04-19 20:35:44,863:INFO:Received answer 't' from amit at 2024-04-19 20:35:44.863554
++2024-04-19 20:35:44,863:INFO:amit is incorrect the answer of t!
++2024-04-19 20:35:44,864:INFO:Start new game at 2024-04-19 20:35:44.864563
++2024-04-19 20:35:44,864:INFO:The asked question of round 1 is The Golden State Warriors broke the record for the most wins in a season in 2016.
++2024-04-19 20:35:47,864:INFO:Received answer 'f' from barak at 2024-04-19 20:35:47.864192
++2024-04-19 20:35:47,864:INFO:barak is incorrect the answer of f!
++2024-04-19 20:35:48,046:INFO:Received answer 't' from amit at 2024-04-19 20:35:48.046783
++2024-04-19 20:35:48,046:INFO:amit is correct with the answer of t!
++2024-04-19 20:35:48,046:INFO:Start new game at 2024-04-19 20:35:48.046783
++2024-04-19 20:35:48,046:INFO:The asked question of round 1 is Michael Jordan was drafted by the Portland Trail Blazers.
++2024-04-19 20:35:49,051:INFO:Received answer '' from amit at 2024-04-19 20:35:49.051825
++2024-04-19 20:35:52,664:INFO:Received answer 'f' from barak at 2024-04-19 20:35:52.664593
++2024-04-19 20:35:52,664:INFO:barak is correct with the answer of f!
++2024-04-19 20:35:53,007:INFO:Received answer 't' from amit at 2024-04-19 20:35:53.007754
++2024-04-19 20:35:53,007:INFO:amit is incorrect the answer of t!
++2024-04-19 20:35:53,008:INFO:Start new game at 2024-04-19 20:35:53.008754
++2024-04-19 20:35:53,008:INFO:The asked question of round 1 is The Toronto Raptors won their first NBA Championship in 2019.
++2024-04-19 20:36:03,023:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:36:03,023:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:36:03,024:INFO:No one answered at round 1. Preparing another question...
++2024-04-19 20:36:03,024:INFO:sending message to client about no answer at 2024-04-19 20:36:03.024299
++2024-04-19 20:36:03,025:INFO:sending message to client about no answer at 2024-04-19 20:36:03.025282
++2024-04-19 20:36:03,025:INFO:The asked question of round 2 is The NBA was founded in 1949 as the National Basketball Association.
++2024-04-19 20:36:13,040:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:36:13,040:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:36:13,041:INFO:No one answered at round 2. Preparing another question...
++2024-04-19 20:36:13,042:INFO:sending message to client about no answer at 2024-04-19 20:36:13.042890
++2024-04-19 20:36:13,042:INFO:sending message to client about no answer at 2024-04-19 20:36:13.042890
++2024-04-19 20:36:13,043:INFO:The asked question of round 3 is Tim Duncan won five NBA championships with the San Antonio Spurs.
++2024-04-19 20:36:23,046:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:36:23,046:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:36:23,047:INFO:No one answered at round 3. Preparing another question...
++2024-04-19 20:36:23,047:INFO:sending message to client about no answer at 2024-04-19 20:36:23.047347
++2024-04-19 20:36:23,047:INFO:sending message to client about no answer at 2024-04-19 20:36:23.047347
++2024-04-19 20:36:23,047:INFO:The asked question of round 4 is Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.
++2024-04-19 20:36:25,948:INFO:Received answer 'f' from barak at 2024-04-19 20:36:25.948980
++2024-04-19 20:36:25,948:INFO:barak is incorrect the answer of f!
++2024-04-19 20:36:26,407:INFO:Received answer 't' from amit at 2024-04-19 20:36:26.407038
++2024-04-19 20:36:26,407:INFO:amit is correct with the answer of t!
++2024-04-19 20:36:26,407:INFO:The asked question of round 4 is The Detroit Pistons have never won an NBA championship.
++2024-04-19 20:36:36,409:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:36:36,410:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:36:36,411:INFO:No one answered at round 4. Preparing another question...
++2024-04-19 20:36:36,411:INFO:sending message to client about no answer at 2024-04-19 20:36:36.411177
++2024-04-19 20:36:36,411:INFO:sending message to client about no answer at 2024-04-19 20:36:36.411177
++2024-04-19 20:36:36,412:INFO:The asked question of round 5 is The Miami Heat was established in 1970.
++2024-04-19 20:36:36,485:INFO:Received answer 'f' from barak at 2024-04-19 20:36:36.485757
++2024-04-19 20:36:36,485:INFO:barak is correct with the answer of f!
++2024-04-19 20:36:36,609:INFO:Received answer 't' from amit at 2024-04-19 20:36:36.609663
++2024-04-19 20:36:36,609:INFO:amit is incorrect the answer of t!
++2024-04-19 20:36:36,610:INFO:The asked question of round 5 is Shaquille O'Neal won his first NBA championship in 2000.
++2024-04-19 20:36:43,566:INFO:Received answer 't' from barak at 2024-04-19 20:36:43.566128
++2024-04-19 20:36:43,566:INFO:barak is correct with the answer of t!
++2024-04-19 20:36:43,694:INFO:Received answer 't' from amit at 2024-04-19 20:36:43.694656
++2024-04-19 20:36:43,694:INFO:amit is correct with the answer of t!
++2024-04-19 20:36:43,695:INFO:The asked question of round 5 is The Chicago Bulls have won 10 NBA championships.
++2024-04-19 20:36:53,703:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:36:53,704:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:36:53,704:INFO:No one answered at round 5. Preparing another question...
++2024-04-19 20:36:53,705:INFO:sending message to client about no answer at 2024-04-19 20:36:53.705198
++2024-04-19 20:36:53,705:INFO:sending message to client about no answer at 2024-04-19 20:36:53.705198
++2024-04-19 20:36:53,705:INFO:The asked question of round 6 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:36:54,695:INFO:Received answer 't' from barak at 2024-04-19 20:36:54.695818
++2024-04-19 20:36:54,695:INFO:barak is correct with the answer of t!
++2024-04-19 20:36:55,061:INFO:Received answer 'f' from amit at 2024-04-19 20:36:55.061173
++2024-04-19 20:36:55,061:INFO:amit is incorrect the answer of f!
++2024-04-19 20:36:55,061:INFO:The asked question of round 6 is The Chicago Bulls have won 10 NBA championships.
++2024-04-19 20:37:05,064:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:37:05,064:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:37:05,065:INFO:No one answered at round 6. Preparing another question...
++2024-04-19 20:37:05,065:INFO:sending message to client about no answer at 2024-04-19 20:37:05.065816
++2024-04-19 20:37:05,066:INFO:sending message to client about no answer at 2024-04-19 20:37:05.066815
++2024-04-19 20:37:05,066:INFO:The asked question of round 7 is LeBron James has never won an NBA MVP award.
++2024-04-19 20:37:15,082:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:37:15,082:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:37:15,083:INFO:No one answered at round 7. Preparing another question...
++2024-04-19 20:37:15,083:INFO:sending message to client about no answer at 2024-04-19 20:37:15.083611
++2024-04-19 20:37:15,083:INFO:sending message to client about no answer at 2024-04-19 20:37:15.083611
++2024-04-19 20:37:15,084:INFO:The asked question of round 8 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:37:23,170:INFO:Game started at 2024-04-19 20:37:23.170838
++2024-04-19 20:37:23,488:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:37:23,504:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:37:34,506:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:39:53,246:INFO:Game started at 2024-04-19 20:39:53.246578
++2024-04-19 20:39:59,466:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:39:59,467:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:40:00,475:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:40:00,476:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:40:11,494:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:40:11,494:INFO:Start new game at 2024-04-19 20:40:11.494799
++2024-04-19 20:40:11,494:INFO:The asked question of round 1 is The Los Angeles Lakers have won 17 NBA championships.
++2024-04-19 20:40:14,445:INFO:Received answer 't' from barak at 2024-04-19 20:40:14.445894
++2024-04-19 20:40:14,445:INFO:barak is correct with the answer of t!
++2024-04-19 20:40:14,457:INFO:Received answer 't' from amit at 2024-04-19 20:40:14.456297
++2024-04-19 20:40:14,457:INFO:amit is correct with the answer of t!
++2024-04-19 20:40:14,457:INFO:Start new game at 2024-04-19 20:40:14.457298
++2024-04-19 20:40:14,457:INFO:The asked question of round 1 is LeBron James has never won an NBA MVP award.
++2024-04-19 20:40:21,877:INFO:Received answer 't' from amit at 2024-04-19 20:40:21.876843
++2024-04-19 20:40:21,877:INFO:amit is incorrect the answer of t!
++2024-04-19 20:40:21,879:INFO:Received answer 't' from barak at 2024-04-19 20:40:21.879836
++2024-04-19 20:40:21,879:INFO:barak is incorrect the answer of t!
++2024-04-19 20:40:21,880:INFO:Start new game at 2024-04-19 20:40:21.880836
++2024-04-19 20:40:21,880:INFO:The asked question of round 1 is Allen Iverson won two NBA championships.
++2024-04-19 20:40:27,530:INFO:Received answer 't' from amit at 2024-04-19 20:40:27.530625
++2024-04-19 20:40:27,530:INFO:amit is incorrect the answer of t!
++2024-04-19 20:40:27,533:INFO:Received answer 't' from barak at 2024-04-19 20:40:27.533623
++2024-04-19 20:40:27,533:INFO:barak is incorrect the answer of t!
++2024-04-19 20:40:27,534:INFO:Start new game at 2024-04-19 20:40:27.534628
++2024-04-19 20:40:27,534:INFO:The asked question of round 1 is The Detroit Pistons have never won an NBA championship.
++2024-04-19 20:40:32,761:INFO:Received answer 't' from amit at 2024-04-19 20:40:32.761170
++2024-04-19 20:40:32,761:INFO:amit is incorrect the answer of t!
++2024-04-19 20:40:32,786:INFO:Received answer 't' from barak at 2024-04-19 20:40:32.786790
++2024-04-19 20:40:32,786:INFO:barak is incorrect the answer of t!
++2024-04-19 20:40:32,787:INFO:Start new game at 2024-04-19 20:40:32.787828
++2024-04-19 20:40:32,787:INFO:The asked question of round 1 is The Chicago Bulls have won 10 NBA championships.
++2024-04-19 20:40:38,931:INFO:Received answer 't' from amit at 2024-04-19 20:40:38.931091
++2024-04-19 20:40:38,932:INFO:amit is incorrect the answer of t!
++2024-04-19 20:40:38,953:INFO:Received answer 't' from barak at 2024-04-19 20:40:38.953090
++2024-04-19 20:40:38,953:INFO:barak is incorrect the answer of t!
++2024-04-19 20:40:38,954:INFO:Start new game at 2024-04-19 20:40:38.954088
++2024-04-19 20:40:38,954:INFO:The asked question of round 1 is The NBA was founded in 1949 as the National Basketball Association.
++2024-04-19 20:40:42,526:INFO:Received answer 't' from barak at 2024-04-19 20:40:42.526076
++2024-04-19 20:40:42,526:INFO:barak is incorrect the answer of t!
++2024-04-19 20:40:42,529:INFO:Received answer 't' from amit at 2024-04-19 20:40:42.529074
++2024-04-19 20:40:42,530:INFO:amit is incorrect the answer of t!
++2024-04-19 20:40:42,530:INFO:Start new game at 2024-04-19 20:40:42.530542
++2024-04-19 20:40:42,530:INFO:The asked question of round 1 is Tim Duncan won five NBA championships with the San Antonio Spurs.
++2024-04-19 20:40:48,293:INFO:Received answer 't' from amit at 2024-04-19 20:40:48.293898
++2024-04-19 20:40:48,293:INFO:amit is correct with the answer of t!
++2024-04-19 20:40:48,323:INFO:Received answer 't' from barak at 2024-04-19 20:40:48.323557
++2024-04-19 20:40:48,323:INFO:barak is correct with the answer of t!
++2024-04-19 20:40:48,323:INFO:Start new game at 2024-04-19 20:40:48.323557
++2024-04-19 20:40:48,323:INFO:The asked question of round 1 is The Miami Heat was established in 1970.
++2024-04-19 20:40:54,956:INFO:Received answer 't' from amit at 2024-04-19 20:40:54.956221
++2024-04-19 20:40:54,956:INFO:amit is incorrect the answer of t!
++2024-04-19 20:40:54,982:INFO:Received answer 'f' from barak at 2024-04-19 20:40:54.982050
++2024-04-19 20:40:54,982:INFO:barak is correct with the answer of f!
++2024-04-19 20:40:54,983:INFO:Start new game at 2024-04-19 20:40:54.983058
++2024-04-19 20:40:54,983:INFO:The asked question of round 1 is Tim Duncan won five NBA championships with the San Antonio Spurs.
++2024-04-19 20:41:04,984:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:41:04,984:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:41:04,985:INFO:No one answered at round 1. Preparing another question...
++2024-04-19 20:41:04,985:INFO:sending message to client about no answer at 2024-04-19 20:41:04.985123
++2024-04-19 20:41:04,985:INFO:sending message to client about no answer at 2024-04-19 20:41:04.985123
++2024-04-19 20:41:04,985:INFO:The asked question of round 2 is The New York Knicks won the NBA Championship in 2012.
++2024-04-19 20:41:14,990:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:41:14,990:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:41:14,991:INFO:No one answered at round 2. Preparing another question...
++2024-04-19 20:41:14,991:INFO:sending message to client about no answer at 2024-04-19 20:41:14.991063
++2024-04-19 20:41:14,991:INFO:sending message to client about no answer at 2024-04-19 20:41:14.991063
++2024-04-19 20:41:14,991:INFO:The asked question of round 3 is The NBA was founded in 1949 as the National Basketball Association.
++2024-04-19 20:41:25,004:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:41:25,004:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:41:25,005:INFO:No one answered at round 3. Preparing another question...
++2024-04-19 20:41:25,005:INFO:sending message to client about no answer at 2024-04-19 20:41:25.005619
++2024-04-19 20:41:25,006:INFO:sending message to client about no answer at 2024-04-19 20:41:25.006756
++2024-04-19 20:41:25,006:INFO:The asked question of round 4 is The Miami Heat was established in 1970.
++2024-04-19 20:41:35,022:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:41:35,023:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:41:35,023:INFO:No one answered at round 4. Preparing another question...
++2024-04-19 20:41:35,024:INFO:sending message to client about no answer at 2024-04-19 20:41:35.024682
++2024-04-19 20:41:35,024:INFO:sending message to client about no answer at 2024-04-19 20:41:35.024682
++2024-04-19 20:41:35,024:INFO:The asked question of round 5 is The Los Angeles Lakers have won 17 NBA championships.
++2024-04-19 20:41:45,029:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:41:45,029:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:41:45,029:INFO:No one answered at round 5. Preparing another question...
++2024-04-19 20:41:45,030:INFO:sending message to client about no answer at 2024-04-19 20:41:45.030477
++2024-04-19 20:41:45,030:INFO:sending message to client about no answer at 2024-04-19 20:41:45.030477
++2024-04-19 20:41:45,030:INFO:The asked question of round 6 is Michael Jordan was drafted by the Portland Trail Blazers.
++2024-04-19 20:41:55,039:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:41:55,039:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:41:55,040:INFO:No one answered at round 6. Preparing another question...
++2024-04-19 20:41:55,040:INFO:sending message to client about no answer at 2024-04-19 20:41:55.040781
++2024-04-19 20:41:55,040:INFO:sending message to client about no answer at 2024-04-19 20:41:55.040781
++2024-04-19 20:41:55,040:INFO:The asked question of round 7 is The Toronto Raptors won their first NBA Championship in 2019.
++2024-04-19 20:42:05,055:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:42:05,055:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:42:05,055:INFO:No one answered at round 7. Preparing another question...
++2024-04-19 20:42:05,056:INFO:sending message to client about no answer at 2024-04-19 20:42:05.056719
++2024-04-19 20:42:05,056:INFO:sending message to client about no answer at 2024-04-19 20:42:05.056719
++2024-04-19 20:42:05,056:INFO:The asked question of round 8 is Shaquille O'Neal won his first NBA championship in 2000.
++2024-04-19 20:42:15,069:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:42:15,069:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:42:15,070:INFO:No one answered at round 8. Preparing another question...
++2024-04-19 20:42:15,070:INFO:sending message to client about no answer at 2024-04-19 20:42:15.070134
++2024-04-19 20:42:15,070:INFO:sending message to client about no answer at 2024-04-19 20:42:15.070134
++2024-04-19 20:42:15,071:INFO:The asked question of round 9 is Allen Iverson won two NBA championships.
++2024-04-19 20:42:25,080:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:42:25,081:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:42:25,081:INFO:No one answered at round 9. Preparing another question...
++2024-04-19 20:42:25,081:INFO:sending message to client about no answer at 2024-04-19 20:42:25.081478
++2024-04-19 20:42:25,082:INFO:sending message to client about no answer at 2024-04-19 20:42:25.082922
++2024-04-19 20:42:25,082:INFO:The asked question of round 10 is The Golden State Warriors broke the record for the most wins in a season in 2016.
++2024-04-19 20:42:29,048:INFO:Received answer '' from barak at 2024-04-19 20:42:29.048771
++2024-04-19 20:42:30,063:ERROR:Error while receiving answer from barak: [WinError 10053] An established connection was aborted by the software in your host machine
++2024-04-19 20:42:30,063:INFO:Disconnected: barak has been removed from the game.
++2024-04-19 20:42:31,842:ERROR:Error while receiving answer from amit: [WinError 10054] An existing connection was forcibly closed by the remote host
++2024-04-19 20:42:31,844:INFO:Disconnected: amit has been removed from the game.
++2024-04-19 20:42:31,844:INFO:Sending message to client barak about no answer at 2024-04-19 20:42:31.844390
++2024-04-19 20:42:31,844:ERROR:Client barak disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket
++2024-04-19 20:42:31,844:INFO:Sending message to client amit about no answer at 2024-04-19 20:42:31.844390
++2024-04-19 20:42:31,844:ERROR:Client amit disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket
++2024-04-19 20:42:31,844:INFO:Game over! No winner.
++
++2024-04-19 20:42:31,844:INFO:Game started at 2024-04-19 20:42:31.844390
++2024-04-19 20:42:31,950:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:42:31,950:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:42:32,961:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:32,962:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:42:34,285:INFO:Game started at 2024-04-19 20:42:34.285261
++2024-04-19 20:42:34,660:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:34,675:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:42:41,374:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:41,375:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:42,387:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:42,388:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:43,404:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:43,405:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:44,416:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:44,417:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:45,427:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:45,441:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:46,442:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:46,456:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:47,461:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:47,473:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:48,475:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:48,488:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:49,488:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:49,490:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:50,505:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:50,517:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:51,518:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:51,520:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:42:52,533:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:42:52,534:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:43:37,795:INFO:Game started at 2024-04-19 20:43:37.795929
++2024-04-19 20:43:42,904:INFO:New client 192.168.0.101 connected.
++2024-04-19 20:43:42,905:INFO:Team barak connected from 192.168.0.101
++2024-04-19 20:43:46,901:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:43:46,901:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:43:57,924:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:43:57,924:INFO:Start new game at 2024-04-19 20:43:57.924524
++2024-04-19 20:43:57,924:INFO:The asked question of round 1 is Michael Jordan was drafted by the Portland Trail Blazers.
++2024-04-19 20:44:01,243:INFO:Received answer '�' from amit at 2024-04-19 20:44:01.243623
++2024-04-19 20:44:01,267:INFO:Received answer 't' from barak at 2024-04-19 20:44:01.267298
++2024-04-19 20:44:01,267:INFO:barak is incorrect the answer of t!
++2024-04-19 20:44:04,682:INFO:Received answer 't' from amit at 2024-04-19 20:44:04.682262
++2024-04-19 20:44:04,682:INFO:amit is incorrect the answer of t!
++2024-04-19 20:44:04,683:INFO:All players answered incorrectly at round 1. Preparing another question...
++2024-04-19 20:44:04,683:INFO:The asked question of round 2 is The Detroit Pistons have never won an NBA championship.
++2024-04-19 20:44:11,304:INFO:Received answer 't' from barak at 2024-04-19 20:44:11.304060
++2024-04-19 20:44:11,304:INFO:barak is incorrect the answer of t!
++2024-04-19 20:44:11,321:INFO:Received answer 't' from amit at 2024-04-19 20:44:11.320308
++2024-04-19 20:44:11,321:INFO:amit is incorrect the answer of t!
++2024-04-19 20:44:11,321:INFO:All players answered incorrectly at round 2. Preparing another question...
++2024-04-19 20:44:11,322:INFO:The asked question of round 3 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
++2024-04-19 20:44:18,172:INFO:Received answer 't' from barak at 2024-04-19 20:44:18.172261
++2024-04-19 20:44:18,172:INFO:barak is incorrect the answer of t!
++2024-04-19 20:44:18,180:INFO:Received answer 't' from amit at 2024-04-19 20:44:18.180264
++2024-04-19 20:44:18,180:INFO:amit is incorrect the answer of t!
++2024-04-19 20:44:18,180:INFO:All players answered incorrectly at round 3. Preparing another question...
++2024-04-19 20:44:18,181:INFO:The asked question of round 4 is The Boston Celtics have the most NBA championships.
++2024-04-19 20:44:26,040:INFO:Received answer 'f' from barak at 2024-04-19 20:44:26.040322
++2024-04-19 20:44:26,040:INFO:barak is incorrect the answer of f!
++2024-04-19 20:44:26,130:INFO:Received answer 'f' from amit at 2024-04-19 20:44:26.130281
++2024-04-19 20:44:26,130:INFO:amit is incorrect the answer of f!
++2024-04-19 20:44:26,131:INFO:All players answered incorrectly at round 4. Preparing another question...
++2024-04-19 20:44:26,132:INFO:The asked question of round 5 is The New York Knicks won the NBA Championship in 2012.
++2024-04-19 20:44:32,012:INFO:Received answer 'f' from barak at 2024-04-19 20:44:32.012179
++2024-04-19 20:44:32,013:INFO:barak is correct with the answer of f!
++2024-04-19 20:44:32,080:INFO:Received answer 'f' from amit at 2024-04-19 20:44:32.080711
++2024-04-19 20:44:32,080:INFO:amit is correct with the answer of f!
++2024-04-19 20:44:32,080:INFO:The asked question of round 5 is Shaquille O'Neal won his first NBA championship in 2000.
++2024-04-19 20:44:36,996:INFO:Received answer 't' from amit at 2024-04-19 20:44:36.996838
++2024-04-19 20:44:36,996:INFO:amit is correct with the answer of t!
++2024-04-19 20:44:37,012:INFO:Received answer 't' from barak at 2024-04-19 20:44:37.012156
++2024-04-19 20:44:37,013:INFO:barak is correct with the answer of t!
++2024-04-19 20:44:37,013:INFO:The asked question of round 5 is The Toronto Raptors won their first NBA Championship in 2019.
++2024-04-19 20:44:45,711:INFO:Received answer 'f' from barak at 2024-04-19 20:44:45.711093
++2024-04-19 20:44:45,711:INFO:barak is incorrect the answer of f!
++2024-04-19 20:44:45,738:INFO:Received answer 't' from amit at 2024-04-19 20:44:45.738118
++2024-04-19 20:44:45,738:INFO:amit is correct with the answer of t!
++2024-04-19 20:44:45,738:INFO:The asked question of round 5 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:44:51,396:INFO:Received answer 't' from amit at 2024-04-19 20:44:51.396956
++2024-04-19 20:44:51,396:INFO:amit is correct with the answer of t!
++2024-04-19 20:44:51,405:INFO:Received answer 'f' from barak at 2024-04-19 20:44:51.405452
++2024-04-19 20:44:51,405:INFO:barak is incorrect the answer of f!
++2024-04-19 20:44:51,406:INFO:The asked question of round 5 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:44:56,458:INFO:Received answer 'f' from barak at 2024-04-19 20:44:56.458963
++2024-04-19 20:44:56,458:INFO:barak is incorrect the answer of f!
++2024-04-19 20:44:56,647:INFO:Received answer 't' from amit at 2024-04-19 20:44:56.647995
++2024-04-19 20:44:56,647:INFO:amit is correct with the answer of t!
++2024-04-19 20:44:56,649:INFO:The asked question of round 5 is The Chicago Bulls have won 10 NBA championships.
++2024-04-19 20:45:01,435:INFO:Received answer 'f' from barak at 2024-04-19 20:45:01.435980
++2024-04-19 20:45:01,436:INFO:barak is correct with the answer of f!
++2024-04-19 20:45:01,444:INFO:Received answer 't' from amit at 2024-04-19 20:45:01.444031
++2024-04-19 20:45:01,444:INFO:amit is incorrect the answer of t!
++2024-04-19 20:45:01,444:INFO:The asked question of round 5 is The Miami Heat was established in 1970.
++2024-04-19 20:45:06,282:INFO:Received answer 't' from barak at 2024-04-19 20:45:06.282132
++2024-04-19 20:45:06,282:INFO:barak is incorrect the answer of t!
++2024-04-19 20:45:06,295:INFO:Received answer 'f' from amit at 2024-04-19 20:45:06.295140
++2024-04-19 20:45:06,295:INFO:amit is correct with the answer of f!
++2024-04-19 20:45:06,295:INFO:The asked question of round 5 is The Golden State Warriors broke the record for the most wins in a season in 2016.
++2024-04-19 20:45:13,670:INFO:Received answer 'f' from amit at 2024-04-19 20:45:13.670793
++2024-04-19 20:45:13,670:INFO:amit is incorrect the answer of f!
++2024-04-19 20:45:14,052:INFO:Received answer 't' from barak at 2024-04-19 20:45:14.052860
++2024-04-19 20:45:14,052:INFO:barak is correct with the answer of t!
++2024-04-19 20:45:14,053:INFO:The asked question of round 5 is The Detroit Pistons have never won an NBA championship.
++2024-04-19 20:45:15,847:INFO:Received answer 't' from barak at 2024-04-19 20:45:15.847962
++2024-04-19 20:45:15,847:INFO:barak is incorrect the answer of t!
++2024-04-19 20:45:16,158:INFO:Received answer 'f' from amit at 2024-04-19 20:45:16.158510
++2024-04-19 20:45:16,158:INFO:amit is correct with the answer of f!
++2024-04-19 20:45:16,158:INFO:The asked question of round 5 is The Miami Heat was established in 1970.
++2024-04-19 20:45:17,626:INFO:Received answer 't' from barak at 2024-04-19 20:45:17.626127
++2024-04-19 20:45:17,626:INFO:barak is incorrect the answer of t!
++2024-04-19 20:45:18,108:INFO:Received answer 'f' from amit at 2024-04-19 20:45:18.108689
++2024-04-19 20:45:18,108:INFO:amit is correct with the answer of f!
++2024-04-19 20:45:18,109:INFO:The asked question of round 5 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
++2024-04-19 20:45:20,530:INFO:Received answer 't' from barak at 2024-04-19 20:45:20.529004
++2024-04-19 20:45:20,530:INFO:barak is incorrect the answer of t!
++2024-04-19 20:45:21,258:INFO:Received answer 'f' from amit at 2024-04-19 20:45:21.257865
++2024-04-19 20:45:21,258:INFO:amit is correct with the answer of f!
++2024-04-19 20:45:21,258:INFO:The asked question of round 5 is The Golden State Warriors broke the record for the most wins in a season in 2016.
++2024-04-19 20:45:22,996:INFO:Received answer 'f' from amit at 2024-04-19 20:45:22.996161
++2024-04-19 20:45:22,996:INFO:amit is incorrect the answer of f!
++2024-04-19 20:45:23,505:INFO:Received answer 't' from barak at 2024-04-19 20:45:23.505995
++2024-04-19 20:45:23,505:INFO:barak is correct with the answer of t!
++2024-04-19 20:45:23,506:INFO:The asked question of round 5 is LeBron James has never won an NBA MVP award.
++2024-04-19 20:45:25,428:INFO:Received answer 'f' from amit at 2024-04-19 20:45:25.428906
++2024-04-19 20:45:25,429:INFO:amit is correct with the answer of f!
++2024-04-19 20:45:25,867:INFO:Received answer 't' from barak at 2024-04-19 20:45:25.866416
++2024-04-19 20:45:25,867:INFO:barak is incorrect the answer of t!
++2024-04-19 20:45:25,867:INFO:The asked question of round 5 is Kareem Abdul-Jabbar scored 100 points in a single NBA game.
++2024-04-19 20:45:27,957:INFO:Received answer 'f' from amit at 2024-04-19 20:45:27.957309
++2024-04-19 20:45:27,958:INFO:amit is correct with the answer of f!
++2024-04-19 20:45:28,265:INFO:Received answer 't' from barak at 2024-04-19 20:45:28.265491
++2024-04-19 20:45:28,265:INFO:barak is incorrect the answer of t!
++2024-04-19 20:45:28,265:INFO:The asked question of round 5 is The Miami Heat was established in 1970.
++2024-04-19 20:45:38,269:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:45:38,269:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:45:38,270:INFO:No one answered at round 5. Preparing another question...
++2024-04-19 20:45:38,270:INFO:sending message to client about no answer at 2024-04-19 20:45:38.270276
++2024-04-19 20:45:38,271:INFO:sending message to client about no answer at 2024-04-19 20:45:38.271273
++2024-04-19 20:45:38,271:INFO:sending demo message to inactive client barak at 2024-04-19 20:45:38.271273
++2024-04-19 20:45:38,271:INFO:sending demo message to inactive client amit at 2024-04-19 20:45:38.271273
++2024-04-19 20:45:38,271:INFO:sending demo message to inactive client barak at 2024-04-19 20:45:38.271273
++2024-04-19 20:45:38,271:INFO:sending demo message to inactive client amit at 2024-04-19 20:45:38.271273
++2024-04-19 20:45:38,271:INFO:sending demo message to inactive client barak at 2024-04-19 20:45:38.271273
++2024-04-19 20:45:38,271:INFO:sending demo message to inactive client amit at 2024-04-19 20:45:38.271273
++2024-04-19 20:45:38,272:INFO:sending demo message to inactive client barak at 2024-04-19 20:45:38.272271
++2024-04-19 20:45:38,272:INFO:sending demo message to inactive client amit at 2024-04-19 20:45:38.272271
++2024-04-19 20:45:38,272:INFO:The asked question of round 6 is The Chicago Bulls have won 10 NBA championships.
++2024-04-19 20:45:48,283:INFO:Timeout occurred for barak, no response received.
++2024-04-19 20:45:48,283:INFO:Timeout occurred for amit, no response received.
++2024-04-19 20:45:48,284:INFO:No one answered at round 6. Preparing another question...
++2024-04-19 20:45:48,284:INFO:sending message to client about no answer at 2024-04-19 20:45:48.284293
++2024-04-19 20:45:48,284:INFO:sending message to client about no answer at 2024-04-19 20:45:48.284293
++2024-04-19 20:45:48,284:INFO:sending demo message to inactive client barak at 2024-04-19 20:45:48.284293
++2024-04-19 20:45:48,284:INFO:sending demo message to inactive client amit at 2024-04-19 20:45:48.284293
++2024-04-19 20:45:48,284:INFO:sending demo message to inactive client barak at 2024-04-19 20:45:48.284293
++2024-04-19 20:45:48,285:INFO:sending demo message to inactive client amit at 2024-04-19 20:45:48.285293
++2024-04-19 20:45:48,285:INFO:sending demo message to inactive client barak at 2024-04-19 20:45:48.285293
++2024-04-19 20:45:48,285:INFO:sending demo message to inactive client amit at 2024-04-19 20:45:48.285293
++2024-04-19 20:45:48,285:INFO:sending demo message to inactive client barak at 2024-04-19 20:45:48.285293
++2024-04-19 20:45:48,285:INFO:sending demo message to inactive client amit at 2024-04-19 20:45:48.285293
++2024-04-19 20:45:48,285:INFO:The asked question of round 7 is The Chicago Bulls have won 10 NBA championships.
++2024-04-19 20:45:52,083:ERROR:Error while receiving answer from amit: [WinError 10054] An existing connection was forcibly closed by the remote host
++2024-04-19 20:45:52,083:INFO:Disconnected: amit has been removed from the game.
++2024-04-19 20:45:54,706:INFO:Received answer '' from barak at 2024-04-19 20:45:54.706404
++2024-04-19 20:45:55,720:ERROR:Error while receiving answer from barak: [WinError 10053] An established connection was aborted by the software in your host machine
++2024-04-19 20:45:55,720:INFO:Disconnected: barak has been removed from the game.
++2024-04-19 20:45:55,720:INFO:Sending message to client barak about no answer at 2024-04-19 20:45:55.720485
++2024-04-19 20:45:55,721:ERROR:Client barak disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket
++2024-04-19 20:45:55,721:INFO:Sending message to client amit about no answer at 2024-04-19 20:45:55.721513
++2024-04-19 20:45:55,721:ERROR:Client amit disconnected from the game due the network error: [WinError 10038] An operation was attempted on something that is not a socket
++2024-04-19 20:45:55,721:INFO:Game over! No winner.
++
++2024-04-19 20:45:55,721:INFO:Game started at 2024-04-19 20:45:55.721513
++2024-04-19 20:52:36,375:INFO:Game started at 2024-04-19 20:52:36.374406
++2024-04-19 20:52:46,381:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:52:53,583:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:52:53,584:INFO:Team amit connected from 192.168.0.105
++2024-04-19 20:53:04,593:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:53:04,593:INFO:Only one player connected, game canceled.
++2024-04-19 20:53:04,594:INFO:Game canceled due to insufficient players.
++2024-04-19 20:55:02,952:INFO:Game started at 2024-04-19 20:55:02.952824
++2024-04-19 20:55:02,957:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:02,957:INFO:Team BOT_Yara connected from 192.168.0.105
++2024-04-19 20:55:03,971:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:03,972:INFO:Team BOT_Ursula connected from 192.168.0.105
++2024-04-19 20:55:04,986:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:04,988:INFO:Team BOT_David connected from 192.168.0.105
++2024-04-19 20:55:05,998:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:05,999:INFO:Team BOT_Kevin connected from 192.168.0.105
++2024-04-19 20:55:07,012:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:07,013:INFO:Team BOT_Riley connected from 192.168.0.105
++2024-04-19 20:55:08,027:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:08,028:INFO:Team BOT_Oliver connected from 192.168.0.105
++2024-04-19 20:55:09,041:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:09,041:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:10,478:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:10,479:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:11,493:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:11,494:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:12,503:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:12,505:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:13,514:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:13,514:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:15,515:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:15,515:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:16,885:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:16,885:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:18,228:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:18,229:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:19,614:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:19,615:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:21,541:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:21,554:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:22,552:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:22,553:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:23,618:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:23,619:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:25,134:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:25,135:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:26,146:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:26,147:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:27,940:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:27,941:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:28,956:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:28,957:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:29,986:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:29,987:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:31,260:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:31,261:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:32,335:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:32,336:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:33,885:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:33,900:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:34,913:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:34,926:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:36,098:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:36,100:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:37,345:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:37,359:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:38,736:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:38,737:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:40,668:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:40,669:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:42,598:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:42,599:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:43,610:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:43,611:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:44,623:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:44,624:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:46,588:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:46,590:WARNING:Duplicate name attempt from 192.168.0.105 denied.
++2024-04-19 20:55:47,698:INFO:Game started at 2024-04-19 20:55:47.698190
++2024-04-19 20:55:47,816:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:47,817:INFO:Team BOT_David connected from 192.168.0.105
++2024-04-19 20:55:48,825:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:48,826:INFO:Team BOT_Oliver connected from 192.168.0.105
++2024-04-19 20:55:49,840:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:49,841:ERROR:Socket error with 192.168.0.105: [WinError 10054] An existing connection was forcibly closed by the remote host
++2024-04-19 20:55:50,854:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:50,855:ERROR:Socket error with 192.168.0.105: [WinError 10054] An existing connection was forcibly closed by the remote host
++2024-04-19 20:55:52,633:INFO:Game started at 2024-04-19 20:55:52.633225
++2024-04-19 20:55:55,651:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:55,652:INFO:Team BOT_Liam connected from 192.168.0.105
++2024-04-19 20:55:56,664:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:56,665:INFO:Team BOT_Riley connected from 192.168.0.105
++2024-04-19 20:55:57,677:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:57,678:INFO:Team BOT_Jack connected from 192.168.0.105
++2024-04-19 20:55:58,692:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:58,693:INFO:Team BOT_Tom connected from 192.168.0.105
++2024-04-19 20:55:59,705:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:55:59,706:INFO:Team BOT_Hannah connected from 192.168.0.105
++2024-04-19 20:56:00,716:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:56:00,718:INFO:Team BOT_Ursula connected from 192.168.0.105
++2024-04-19 20:56:01,725:INFO:New client 192.168.0.105 connected.
++2024-04-19 20:56:01,727:INFO:Team BOT_Kevin connected from 192.168.0.105
++2024-04-19 20:56:12,748:ERROR:Accepting new client timed out: timed out
++2024-04-19 20:56:12,748:INFO:Start new game at 2024-04-19 20:56:12.748249
++2024-04-19 20:56:12,748:INFO:The asked question of round 1 is Kareem Abdul-Jabbar scored 100 points in a single NBA game.
++2024-04-19 20:56:13,493:INFO:Received answer 'T' from BOT_Jack at 2024-04-19 20:56:13.493080
++2024-04-19 20:56:13,493:INFO:BOT_Jack is incorrect the answer of T!
++2024-04-19 20:56:13,539:INFO:Received answer 'T' from BOT_Tom at 2024-04-19 20:56:13.539796
++2024-04-19 20:56:13,539:INFO:BOT_Tom is incorrect the answer of T!
++2024-04-19 20:56:13,647:INFO:Received answer 'T' from BOT_Kevin at 2024-04-19 20:56:13.647633
++2024-04-19 20:56:13,648:INFO:BOT_Kevin is incorrect the answer of T!
++2024-04-19 20:56:13,960:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:13.960663
++2024-04-19 20:56:13,961:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:56:14,444:INFO:Received answer 'T' from BOT_Hannah at 2024-04-19 20:56:14.444749
++2024-04-19 20:56:14,446:INFO:BOT_Hannah is incorrect the answer of T!
++2024-04-19 20:56:14,521:INFO:Received answer 'T' from BOT_Riley at 2024-04-19 20:56:14.521926
++2024-04-19 20:56:14,522:INFO:BOT_Riley is incorrect the answer of T!
++2024-04-19 20:56:14,722:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:14.722984
++2024-04-19 20:56:14,722:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:56:14,723:INFO:Sending message to client BOT_Riley about incorrect answer at 2024-04-19 20:56:14.723901
++2024-04-19 20:56:14,724:INFO:Sending message to client BOT_Jack about incorrect answer at 2024-04-19 20:56:14.724929
++2024-04-19 20:56:14,724:INFO:Sending message to client BOT_Tom about incorrect answer at 2024-04-19 20:56:14.724929
++2024-04-19 20:56:14,725:INFO:Sending message to client BOT_Hannah about incorrect answer at 2024-04-19 20:56:14.725829
++2024-04-19 20:56:14,725:INFO:Sending message to client BOT_Kevin about incorrect answer at 2024-04-19 20:56:14.725829
++2024-04-19 20:56:14,725:INFO:Start new game at 2024-04-19 20:56:14.725829
++2024-04-19 20:56:14,725:INFO:The asked question of round 1 is Allen Iverson won two NBA championships.
++2024-04-19 20:56:15,561:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:15.561468
++2024-04-19 20:56:15,563:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:56:15,794:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:15.794067
++2024-04-19 20:56:15,794:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:56:15,795:INFO:Start new game at 2024-04-19 20:56:15.795018
++2024-04-19 20:56:15,795:INFO:The asked question of round 1 is The Toronto Raptors won their first NBA Championship in 2019.
++2024-04-19 20:56:16,463:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:16.463433
++2024-04-19 20:56:16,463:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:16,788:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:16.788208
++2024-04-19 20:56:16,789:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:56:16,789:INFO:Start new game at 2024-04-19 20:56:16.789208
++2024-04-19 20:56:16,789:INFO:The asked question of round 1 is Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.
++2024-04-19 20:56:17,788:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:17.788961
++2024-04-19 20:56:17,788:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:56:18,771:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:18.771813
++2024-04-19 20:56:18,772:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:18,772:INFO:Start new game at 2024-04-19 20:56:18.772844
++2024-04-19 20:56:18,773:INFO:The asked question of round 1 is Michael Jordan was drafted by the Portland Trail Blazers.
++2024-04-19 20:56:19,879:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:19.878884
++2024-04-19 20:56:19,879:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:56:20,506:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:20.506648
++2024-04-19 20:56:20,507:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:56:20,507:INFO:Start new game at 2024-04-19 20:56:20.507494
++2024-04-19 20:56:20,508:INFO:The asked question of round 1 is The Miami Heat was established in 1970.
++2024-04-19 20:56:21,486:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:21.486779
++2024-04-19 20:56:21,487:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:56:21,967:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:21.967956
++2024-04-19 20:56:21,967:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:56:21,968:INFO:Start new game at 2024-04-19 20:56:21.968767
++2024-04-19 20:56:21,968:INFO:The asked question of round 1 is Michael Jordan was drafted by the Portland Trail Blazers.
++2024-04-19 20:56:23,751:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:23.751815
++2024-04-19 20:56:23,752:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:56:23,908:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:23.907729
++2024-04-19 20:56:23,908:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:56:23,909:INFO:Start new game at 2024-04-19 20:56:23.909571
++2024-04-19 20:56:23,909:INFO:The asked question of round 1 is The New York Knicks won the NBA Championship in 2012.
++2024-04-19 20:56:25,169:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:25.169100
++2024-04-19 20:56:25,170:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:56:25,853:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:25.853798
++2024-04-19 20:56:25,853:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:56:25,854:INFO:Start new game at 2024-04-19 20:56:25.854801
++2024-04-19 20:56:25,854:INFO:The asked question of round 1 is LeBron James was drafted first overall in 2003.
++2024-04-19 20:56:26,802:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:26.802569
++2024-04-19 20:56:26,804:INFO:BOT_Liam is correct with the answer of T!
++2024-04-19 20:56:27,487:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:27.487124
++2024-04-19 20:56:27,488:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:27,489:INFO:Start new game at 2024-04-19 20:56:27.488201
++2024-04-19 20:56:27,489:INFO:The asked question of round 1 is Michael Jordan won 6 NBA championships.
++2024-04-19 20:56:28,284:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:28.284074
++2024-04-19 20:56:28,284:INFO:BOT_Ursula is correct with the answer of T!
++2024-04-19 20:56:29,310:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:29.310312
++2024-04-19 20:56:29,310:INFO:BOT_Liam is correct with the answer of T!
++2024-04-19 20:56:29,311:INFO:Start new game at 2024-04-19 20:56:29.311504
++2024-04-19 20:56:29,311:INFO:The asked question of round 1 is The Boston Celtics have the most NBA championships.
++2024-04-19 20:56:30,975:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:30.975472
++2024-04-19 20:56:30,976:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:30,977:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:30.977318
++2024-04-19 20:56:30,977:INFO:BOT_Liam is correct with the answer of T!
++2024-04-19 20:56:30,979:INFO:Start new game at 2024-04-19 20:56:30.979320
++2024-04-19 20:56:30,979:INFO:The asked question of round 1 is The NBA was founded in 1949 as the National Basketball Association.
++2024-04-19 20:56:32,096:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:32.096521
++2024-04-19 20:56:32,097:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:56:32,861:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:32.861121
++2024-04-19 20:56:32,862:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:56:32,863:INFO:Start new game at 2024-04-19 20:56:32.863007
++2024-04-19 20:56:32,863:INFO:The asked question of round 1 is The Miami Heat was established in 1970.
++2024-04-19 20:56:33,830:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:33.830682
++2024-04-19 20:56:33,830:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:56:34,749:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:34.749415
++2024-04-19 20:56:34,750:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:56:34,750:INFO:Start new game at 2024-04-19 20:56:34.750446
++2024-04-19 20:56:34,751:INFO:The asked question of round 1 is The NBA was founded in 1949 as the National Basketball Association.
++2024-04-19 20:56:35,689:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:35.689947
++2024-04-19 20:56:35,689:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:56:36,627:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:36.627854
++2024-04-19 20:56:36,627:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:56:36,628:INFO:Start new game at 2024-04-19 20:56:36.628785
++2024-04-19 20:56:36,628:INFO:The asked question of round 1 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:56:38,308:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:38.308001
++2024-04-19 20:56:38,308:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:38,542:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:38.542605
++2024-04-19 20:56:38,543:INFO:BOT_Liam is correct with the answer of T!
++2024-04-19 20:56:38,543:INFO:Start new game at 2024-04-19 20:56:38.543444
++2024-04-19 20:56:38,543:INFO:The asked question of round 1 is Kareem Abdul-Jabbar scored 100 points in a single NBA game.
++2024-04-19 20:56:39,435:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:39.435925
++2024-04-19 20:56:39,435:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:56:39,764:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:39.764814
++2024-04-19 20:56:39,765:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:56:39,765:INFO:Start new game at 2024-04-19 20:56:39.765809
++2024-04-19 20:56:39,766:INFO:The asked question of round 1 is The Los Angeles Lakers have won 17 NBA championships.
++2024-04-19 20:56:41,091:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:41.091356
++2024-04-19 20:56:41,091:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:56:41,509:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:41.509983
++2024-04-19 20:56:41,511:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:41,511:INFO:Start new game at 2024-04-19 20:56:41.511124
++2024-04-19 20:56:41,512:INFO:The asked question of round 1 is The New York Knicks won the NBA Championship in 2012.
++2024-04-19 20:56:42,182:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:42.181884
++2024-04-19 20:56:42,182:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:56:42,619:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:42.618701
++2024-04-19 20:56:42,620:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:56:42,621:INFO:Start new game at 2024-04-19 20:56:42.621718
++2024-04-19 20:56:42,621:INFO:The asked question of round 1 is The NBA was founded in 1949 as the National Basketball Association.
++2024-04-19 20:56:43,711:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:43.711017
++2024-04-19 20:56:43,712:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:56:44,568:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:44.568882
++2024-04-19 20:56:44,569:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:56:44,569:INFO:Start new game at 2024-04-19 20:56:44.569921
++2024-04-19 20:56:44,569:INFO:The asked question of round 1 is Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.
++2024-04-19 20:56:46,064:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:46.064808
++2024-04-19 20:56:46,065:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:56:46,144:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:46.144087
++2024-04-19 20:56:46,145:INFO:BOT_Ursula is correct with the answer of T!
++2024-04-19 20:56:46,145:INFO:Start new game at 2024-04-19 20:56:46.145178
++2024-04-19 20:56:46,146:INFO:The asked question of round 1 is Michael Jordan won 6 NBA championships.
++2024-04-19 20:56:47,605:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:47.605781
++2024-04-19 20:56:47,605:INFO:BOT_Liam is correct with the answer of T!
++2024-04-19 20:56:48,149:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:48.149566
++2024-04-19 20:56:48,150:INFO:BOT_Ursula is correct with the answer of T!
++2024-04-19 20:56:48,150:INFO:Start new game at 2024-04-19 20:56:48.150820
++2024-04-19 20:56:48,150:INFO:The asked question of round 1 is The Chicago Bulls have won 10 NBA championships.
++2024-04-19 20:56:49,582:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:49.582050
++2024-04-19 20:56:49,582:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:56:49,597:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:49.597405
++2024-04-19 20:56:49,598:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:56:49,598:INFO:Start new game at 2024-04-19 20:56:49.598361
++2024-04-19 20:56:49,598:INFO:The asked question of round 1 is Michael Jordan won 6 NBA championships.
++2024-04-19 20:56:50,393:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:50.393059
++2024-04-19 20:56:50,393:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:51,126:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:51.126432
++2024-04-19 20:56:51,126:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:56:51,127:INFO:Start new game at 2024-04-19 20:56:51.127772
++2024-04-19 20:56:51,127:INFO:The asked question of round 1 is The NBA was founded in 1949 as the National Basketball Association.
++2024-04-19 20:56:52,296:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:52.296119
++2024-04-19 20:56:52,297:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:56:52,452:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:52.452801
++2024-04-19 20:56:52,453:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:56:52,453:INFO:Start new game at 2024-04-19 20:56:52.453619
++2024-04-19 20:56:52,453:INFO:The asked question of round 1 is The NBA was founded in 1949 as the National Basketball Association.
++2024-04-19 20:56:53,356:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:53.356733
++2024-04-19 20:56:53,357:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:56:53,763:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:53.763732
++2024-04-19 20:56:53,764:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:56:53,764:INFO:Start new game at 2024-04-19 20:56:53.764573
++2024-04-19 20:56:53,764:INFO:The asked question of round 1 is The New York Knicks won the NBA Championship in 2012.
++2024-04-19 20:56:54,831:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:54.831855
++2024-04-19 20:56:54,832:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:56:55,344:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:55.344017
++2024-04-19 20:56:55,345:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:56:55,346:INFO:Start new game at 2024-04-19 20:56:55.346830
++2024-04-19 20:56:55,347:INFO:The asked question of round 1 is The Los Angeles Lakers have won 17 NBA championships.
++2024-04-19 20:56:56,468:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:56.468478
++2024-04-19 20:56:56,469:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:56:57,137:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:57.136791
++2024-04-19 20:56:57,137:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:57,138:INFO:Start new game at 2024-04-19 20:56:57.138719
++2024-04-19 20:56:57,138:INFO:The asked question of round 1 is The Los Angeles Lakers have won 17 NBA championships.
++2024-04-19 20:56:58,445:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:56:58.445212
++2024-04-19 20:56:58,445:INFO:BOT_Ursula is correct with the answer of T!
++2024-04-19 20:56:58,725:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:56:58.725900
++2024-04-19 20:56:58,727:INFO:BOT_Liam is correct with the answer of T!
++2024-04-19 20:56:58,727:INFO:Start new game at 2024-04-19 20:56:58.727003
++2024-04-19 20:56:58,728:INFO:The asked question of round 1 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:56:59,680:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:56:59.679675
++2024-04-19 20:56:59,680:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:56:59,788:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:56:59.788928
++2024-04-19 20:56:59,788:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:56:59,789:INFO:Start new game at 2024-04-19 20:56:59.789772
++2024-04-19 20:56:59,789:INFO:The asked question of round 1 is The Detroit Pistons have never won an NBA championship.
++2024-04-19 20:57:00,557:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:57:00.557451
++2024-04-19 20:57:00,558:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:57:01,539:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:57:01.539954
++2024-04-19 20:57:01,540:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:57:01,540:INFO:Start new game at 2024-04-19 20:57:01.540768
++2024-04-19 20:57:01,540:INFO:The asked question of round 1 is The New York Knicks won the NBA Championship in 2012.
++2024-04-19 20:57:02,148:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:57:02.148525
++2024-04-19 20:57:02,149:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:57:02,693:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:57:02.693622
++2024-04-19 20:57:02,693:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:57:02,693:INFO:Start new game at 2024-04-19 20:57:02.693622
++2024-04-19 20:57:02,693:INFO:The asked question of round 1 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:57:04,491:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:57:04.491244
++2024-04-19 20:57:04,492:INFO:BOT_Liam is correct with the answer of T!
++2024-04-19 20:57:04,601:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:57:04.600864
++2024-04-19 20:57:04,601:INFO:BOT_Ursula is correct with the answer of T!
++2024-04-19 20:57:04,602:INFO:Start new game at 2024-04-19 20:57:04.602723
++2024-04-19 20:57:04,602:INFO:The asked question of round 1 is Kobe Bryant spent his entire career with the Los Angeles Lakers.
++2024-04-19 20:57:06,098:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:57:06.098149
++2024-04-19 20:57:06,098:INFO:BOT_Liam is correct with the answer of T!
++2024-04-19 20:57:06,098:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:57:06.098970
++2024-04-19 20:57:06,098:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:57:06,099:INFO:Start new game at 2024-04-19 20:57:06.099968
++2024-04-19 20:57:06,099:INFO:The asked question of round 1 is Kevin Durant won his first NBA championship with the Oklahoma City Thunder.
++2024-04-19 20:57:06,676:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:57:06.676566
++2024-04-19 20:57:06,677:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:57:07,956:INFO:Received answer 'T' from BOT_Liam at 2024-04-19 20:57:07.955233
++2024-04-19 20:57:07,956:INFO:BOT_Liam is incorrect the answer of T!
++2024-04-19 20:57:07,957:INFO:Start new game at 2024-04-19 20:57:07.957099
++2024-04-19 20:57:07,957:INFO:The asked question of round 1 is The Los Angeles Lakers have won 17 NBA championships.
++2024-04-19 20:57:08,830:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:57:08.830099
++2024-04-19 20:57:08,830:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:57:09,016:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:57:09.016352
++2024-04-19 20:57:09,017:INFO:BOT_Ursula is correct with the answer of T!
++2024-04-19 20:57:09,017:INFO:Start new game at 2024-04-19 20:57:09.017348
++2024-04-19 20:57:09,017:INFO:The asked question of round 1 is Michael Jordan was drafted by the Portland Trail Blazers.
++2024-04-19 20:57:09,548:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:57:09.548248
++2024-04-19 20:57:09,549:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:57:10,262:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:57:10.262377
++2024-04-19 20:57:10,262:INFO:BOT_Ursula is correct with the answer of F!
++2024-04-19 20:57:10,263:INFO:Start new game at 2024-04-19 20:57:10.263379
++2024-04-19 20:57:10,263:INFO:The asked question of round 1 is The Detroit Pistons have never won an NBA championship.
++2024-04-19 20:57:11,121:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:57:11.121822
++2024-04-19 20:57:11,121:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:57:11,915:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:57:11.915096
++2024-04-19 20:57:11,915:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:57:11,915:INFO:Start new game at 2024-04-19 20:57:11.915511
++2024-04-19 20:57:11,915:INFO:The asked question of round 1 is Kareem Abdul-Jabbar scored 100 points in a single NBA game.
++2024-04-19 20:57:12,619:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:57:12.619915
++2024-04-19 20:57:12,619:INFO:BOT_Liam is correct with the answer of F!
++2024-04-19 20:57:13,731:INFO:Received answer 'T' from BOT_Ursula at 2024-04-19 20:57:13.731229
++2024-04-19 20:57:13,731:INFO:BOT_Ursula is incorrect the answer of T!
++2024-04-19 20:57:13,732:INFO:Start new game at 2024-04-19 20:57:13.732228
++2024-04-19 20:57:13,732:INFO:The asked question of round 1 is Michael Jordan won 6 NBA championships.
++2024-04-19 20:57:15,524:INFO:Received answer 'F' from BOT_Liam at 2024-04-19 20:57:15.524699
++2024-04-19 20:57:15,524:INFO:BOT_Liam is incorrect the answer of F!
++2024-04-19 20:57:15,571:INFO:Received answer 'F' from BOT_Ursula at 2024-04-19 20:57:15.571310
++2024-04-19 20:57:15,571:INFO:BOT_Ursula is incorrect the answer of F!
++2024-04-19 20:57:15,572:INFO:Start new game at 2024-04-19 20:57:15.572307
++2024-04-19 20:57:15,572:INFO:The asked question of round 1 is Dirk Nowitzki is the highest-scoring foreign-born player in NBA history.
+Index: .idea/Trivia_King.iml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<module type=\"PYTHON_MODULE\" version=\"4\">\r\n  <component name=\"NewModuleRootManager\">\r\n    <content url=\"file://$MODULE_DIR$\">\r\n      <excludeFolder url=\"file://$MODULE_DIR$/.venv\" />\r\n      <excludeFolder url=\"file://$MODULE_DIR$/venv\" />\r\n    </content>\r\n    <orderEntry type=\"inheritedJdk\" />\r\n    <orderEntry type=\"sourceFolder\" forTests=\"false\" />\r\n  </component>\r\n</module>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/Trivia_King.iml b/.idea/Trivia_King.iml
+--- a/.idea/Trivia_King.iml	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
++++ b/.idea/Trivia_King.iml	(date 1713548583948)
+@@ -5,7 +5,7 @@
+       <excludeFolder url="file://$MODULE_DIR$/.venv" />
+       <excludeFolder url="file://$MODULE_DIR$/venv" />
+     </content>
+-    <orderEntry type="inheritedJdk" />
++    <orderEntry type="jdk" jdkName="Python 3.9 (pythonProject)" jdkType="Python SDK" />
+     <orderEntry type="sourceFolder" forTests="false" />
+   </component>
+ </module>
+\ No newline at end of file
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"4b125e54-2be9-48a8-902e-9cc7aee8c5a7\" name=\"Changes\" comment=\"add more tasks\">\r\n      <change afterPath=\"$PROJECT_DIR$/7 bot clients.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/.idea/workspace.xml\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/.idea/workspace.xml\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/Server.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/Server.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/main.py\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/main.py\" afterDir=\"false\" />\r\n      <change beforePath=\"$PROJECT_DIR$/server.log\" beforeDir=\"false\" afterPath=\"$PROJECT_DIR$/server.log\" afterDir=\"false\" />\r\n    </list>\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"FileTemplateManagerImpl\">\r\n    <option name=\"RECENT_TEMPLATES\">\r\n      <list>\r\n        <option value=\"Python Script\" />\r\n      </list>\r\n    </option>\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 5\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2eDxafKyTgwscsfmkoAQYGz33fM\" />\r\n  <component name=\"ProjectLevelVcsManager\" settingsEditedManually=\"true\">\r\n    <ConfirmationsSetting value=\"2\" id=\"Add\" />\r\n  </component>\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\">{\r\n  &quot;keyToString&quot;: {\r\n    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,\r\n    &quot;Python.main.executor&quot;: &quot;Run&quot;,\r\n    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,\r\n    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,\r\n    &quot;git-widget-placeholder&quot;: &quot;master&quot;,\r\n    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,\r\n    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,\r\n    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,\r\n    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,\r\n    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,\r\n    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,\r\n    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;\r\n  }\r\n}</component>\r\n  <component name=\"RunManager\">\r\n    <configuration name=\"main\" type=\"PythonConfigurationType\" factoryName=\"Python\" temporary=\"true\" nameIsGenerated=\"true\">\r\n      <module name=\"Trivia_King\" />\r\n      <option name=\"INTERPRETER_OPTIONS\" value=\"\" />\r\n      <option name=\"PARENT_ENVS\" value=\"true\" />\r\n      <envs>\r\n        <env name=\"PYTHONUNBUFFERED\" value=\"1\" />\r\n      </envs>\r\n      <option name=\"SDK_HOME\" value=\"\" />\r\n      <option name=\"SDK_NAME\" value=\"Python 3.9 (Trivia_King)\" />\r\n      <option name=\"WORKING_DIRECTORY\" value=\"$PROJECT_DIR$\" />\r\n      <option name=\"IS_MODULE_SDK\" value=\"false\" />\r\n      <option name=\"ADD_CONTENT_ROOTS\" value=\"true\" />\r\n      <option name=\"ADD_SOURCE_ROOTS\" value=\"true\" />\r\n      <EXTENSION ID=\"PythonCoverageRunConfigurationExtension\" runner=\"coverage.py\" />\r\n      <option name=\"SCRIPT_NAME\" value=\"$PROJECT_DIR$/main.py\" />\r\n      <option name=\"PARAMETERS\" value=\"\" />\r\n      <option name=\"SHOW_COMMAND_LINE\" value=\"false\" />\r\n      <option name=\"EMULATE_TERMINAL\" value=\"false\" />\r\n      <option name=\"MODULE_MODE\" value=\"false\" />\r\n      <option name=\"REDIRECT_INPUT\" value=\"false\" />\r\n      <option name=\"INPUT_FILE\" value=\"\" />\r\n      <method v=\"2\" />\r\n    </configuration>\r\n    <recent_temporary>\r\n      <list>\r\n        <item itemvalue=\"Python.main\" />\r\n      </list>\r\n    </recent_temporary>\r\n  </component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"4b125e54-2be9-48a8-902e-9cc7aee8c5a7\" name=\"Changes\" comment=\"\" />\r\n      <created>1711453014273</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1711453014273</updated>\r\n      <workItem from=\"1711453022637\" duration=\"78156000\" />\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00001\" summary=\"hello_word\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711453362210</created>\r\n      <option name=\"number\" value=\"00001\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00001\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711453362210</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00002\" summary=\"hello_word\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711453520259</created>\r\n      <option name=\"number\" value=\"00002\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00002\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711453520259</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00003\" summary=\"client server basic udp\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711488397637</created>\r\n      <option name=\"number\" value=\"00003\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00003\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711488397637</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00004\" summary=\"first TCP connection\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711721996446</created>\r\n      <option name=\"number\" value=\"00004\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00004\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711721996446</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00005\" summary=\"starting the trivia game\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711812922038</created>\r\n      <option name=\"number\" value=\"00005\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00005\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711812922038</updated>\r\n    </task>\r\n    <task id=\"LOCAL\u200E-00006\" summary=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1711815787403</created>\r\n      <option name=\"number\" value=\"00006\" />\r\n      <option name=\"presentableId\" value=\"LOCAL\u200E-00006\" />\r\n      <option name=\"project\" value=\"LOCAL\u200E\" />\r\n      <updated>1711815787403</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00007\" summary=\"add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1713475017357</created>\r\n      <option name=\"number\" value=\"00007\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00007\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1713475017357</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00008\" summary=\"add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1713541653885</created>\r\n      <option name=\"number\" value=\"00008\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00008\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1713541653885</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00009\" summary=\"add more tasks\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1713542785107</created>\r\n      <option name=\"number\" value=\"00009\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00009\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1713542785107</updated>\r\n    </task>\r\n    <option name=\"localTasksCounter\" value=\"10\" />\r\n    <servers />\r\n  </component>\r\n  <component name=\"TypeScriptGeneratedFilesManager\">\r\n    <option name=\"version\" value=\"3\" />\r\n  </component>\r\n  <component name=\"Vcs.Log.Tabs.Properties\">\r\n    <option name=\"TAB_STATES\">\r\n      <map>\r\n        <entry key=\"MAIN\">\r\n          <value>\r\n            <State />\r\n          </value>\r\n        </entry>\r\n      </map>\r\n    </option>\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <option name=\"ADD_EXTERNAL_FILES_SILENTLY\" value=\"true\" />\r\n    <MESSAGE value=\"hello_word\" />\r\n    <MESSAGE value=\"client server basic udp\" />\r\n    <MESSAGE value=\"first TCP connection\" />\r\n    <MESSAGE value=\"starting the trivia game\" />\r\n    <MESSAGE value=\"functionality added- If nobody answers after 10 seconds, or if all players answered incorrectly and were&#10;disqualified, the server chooses another random trivia question.&#10;**still need to solve error from the fact  we dont close the connection\" />\r\n    <MESSAGE value=\"add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment\" />\r\n    <MESSAGE value=\"add the following:&#10;1. fix some bugs&#10;2. handle steps 8 and 9 from the assignment# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session\" />\r\n    <MESSAGE value=\"add more tasks\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"add more tasks\" />\r\n  </component>\r\n  <component name=\"XDebuggerManager\">\r\n    <breakpoint-manager>\r\n      <breakpoints>\r\n        <line-breakpoint enabled=\"true\" suspend=\"THREAD\" type=\"python-line\">\r\n          <url>file://$PROJECT_DIR$/Client.py</url>\r\n          <line>115</line>\r\n          <option name=\"timeStamp\" value=\"59\" />\r\n        </line-breakpoint>\r\n      </breakpoints>\r\n      <default-breakpoints>\r\n        <breakpoint type=\"python-exception\">\r\n          <properties notifyOnTerminate=\"true\" exception=\"BaseException\">\r\n            <option name=\"notifyOnTerminate\" value=\"true\" />\r\n          </properties>\r\n        </breakpoint>\r\n      </default-breakpoints>\r\n    </breakpoint-manager>\r\n  </component>\r\n  <component name=\"com.intellij.coverage.CoverageDataManagerImpl\">\r\n    <SUITE FILE_PATH=\"coverage/Trivia_King$main.coverage\" NAME=\"main Coverage Results\" MODIFIED=\"1713546437766\" SOURCE_PROVIDER=\"com.intellij.coverage.DefaultCoverageFileProvider\" RUNNER=\"coverage.py\" COVERAGE_BY_TEST_ENABLED=\"true\" COVERAGE_TRACING_ENABLED=\"false\" WORKING_DIRECTORY=\"$PROJECT_DIR$\" />\r\n  </component>\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
++++ b/.idea/workspace.xml	(date 1713607836203)
+@@ -5,9 +5,12 @@
+   </component>
+   <component name="ChangeListManager">
+     <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="add more tasks">
+-      <change afterPath="$PROJECT_DIR$/7 bot clients.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/.idea/Trivia_King.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Trivia_King.iml" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01_[Changes]/shelved.patch" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_04_2024_19_01__Changes_.xml" beforeDir="false" />
+       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+-      <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/Client.py" beforeDir="false" afterPath="$PROJECT_DIR$/Client.py" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+       <change beforePath="$PROJECT_DIR$/server.log" beforeDir="false" afterPath="$PROJECT_DIR$/server.log" afterDir="false" />
+     </list>
+@@ -25,6 +28,9 @@
+   </component>
+   <component name="Git.Settings">
+     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
++  </component>
++  <component name="ProblemsViewState">
++    <option name="selectedTabId" value="CurrentFile" />
+   </component>
+   <component name="ProjectColorInfo">{
+   &quot;associatedIndex&quot;: 5
+@@ -37,38 +43,87 @@
+     <option name="hideEmptyMiddlePackages" value="true" />
+     <option name="showLibraryContents" value="true" />
+   </component>
+-  <component name="PropertiesComponent">{
+-  &quot;keyToString&quot;: {
+-    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
+-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+-    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;,
+-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
++  <component name="PropertiesComponent"><![CDATA[{
++  "keyToString": {
++    "ASKED_ADD_EXTERNAL_FILES": "true",
++    "Python.7 bot clients.executor": "Run",
++    "Python.main.executor": "Run",
++    "Python.p2 client.executor": "Run",
++    "RunOnceActivity.OpenProjectViewOnStart": "true",
++    "RunOnceActivity.ShowReadmeOnStart": "true",
++    "git-widget-placeholder": "master",
++    "node.js.detected.package.eslint": "true",
++    "node.js.detected.package.tslint": "true",
++    "node.js.selected.package.eslint": "(autodetect)",
++    "node.js.selected.package.tslint": "(autodetect)",
++    "nodejs_package_manager_path": "npm",
++    "settings.editor.selected.configurable": "org.jetbrains.plugins.github.ui.GithubSettingsConfigurable",
++    "vue.rearranger.settings.migration": "true"
+   }
+-}</component>
+-  <component name="RunManager">
++}]]></component>
++  <component name="RunManager" selected="Python.main">
++    <configuration name="7 bot clients" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
++      <module name="Trivia_King" />
++      <option name="ENV_FILES" value="" />
++      <option name="INTERPRETER_OPTIONS" value="" />
++      <option name="PARENT_ENVS" value="true" />
++      <envs>
++        <env name="PYTHONUNBUFFERED" value="1" />
++      </envs>
++      <option name="SDK_HOME" value="" />
++      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
++      <option name="IS_MODULE_SDK" value="true" />
++      <option name="ADD_CONTENT_ROOTS" value="true" />
++      <option name="ADD_SOURCE_ROOTS" value="true" />
++      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
++      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/7 bot clients.py" />
++      <option name="PARAMETERS" value="" />
++      <option name="SHOW_COMMAND_LINE" value="false" />
++      <option name="EMULATE_TERMINAL" value="false" />
++      <option name="MODULE_MODE" value="false" />
++      <option name="REDIRECT_INPUT" value="false" />
++      <option name="INPUT_FILE" value="" />
++      <method v="2" />
++    </configuration>
+     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+       <module name="Trivia_King" />
++      <option name="ENV_FILES" value="" />
+       <option name="INTERPRETER_OPTIONS" value="" />
+       <option name="PARENT_ENVS" value="true" />
+       <envs>
+         <env name="PYTHONUNBUFFERED" value="1" />
+       </envs>
+       <option name="SDK_HOME" value="" />
+-      <option name="SDK_NAME" value="Python 3.9 (Trivia_King)" />
++      <option name="SDK_NAME" value="Python 3.9 (pythonProject)" />
+       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+       <option name="IS_MODULE_SDK" value="false" />
+       <option name="ADD_CONTENT_ROOTS" value="true" />
+       <option name="ADD_SOURCE_ROOTS" value="true" />
+       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
++      <option name="PARAMETERS" value="" />
++      <option name="SHOW_COMMAND_LINE" value="false" />
++      <option name="EMULATE_TERMINAL" value="false" />
++      <option name="MODULE_MODE" value="false" />
++      <option name="REDIRECT_INPUT" value="false" />
++      <option name="INPUT_FILE" value="" />
++      <method v="2" />
++    </configuration>
++    <configuration name="p2 client" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
++      <module name="Trivia_King" />
++      <option name="ENV_FILES" value="" />
++      <option name="INTERPRETER_OPTIONS" value="" />
++      <option name="PARENT_ENVS" value="true" />
++      <envs>
++        <env name="PYTHONUNBUFFERED" value="1" />
++      </envs>
++      <option name="SDK_HOME" value="" />
++      <option name="WORKING_DIRECTORY" value="$USER_HOME$/Downloads" />
++      <option name="IS_MODULE_SDK" value="false" />
++      <option name="ADD_CONTENT_ROOTS" value="true" />
++      <option name="ADD_SOURCE_ROOTS" value="true" />
++      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
++      <option name="SCRIPT_NAME" value="$USER_HOME$/Downloads/p2 client.py" />
+       <option name="PARAMETERS" value="" />
+       <option name="SHOW_COMMAND_LINE" value="false" />
+       <option name="EMULATE_TERMINAL" value="false" />
+@@ -79,14 +134,17 @@
+     </configuration>
+     <recent_temporary>
+       <list>
++        <item itemvalue="Python.7 bot clients" />
+         <item itemvalue="Python.main" />
++        <item itemvalue="Python.p2 client" />
+       </list>
+     </recent_temporary>
+   </component>
+   <component name="SharedIndexes">
+     <attachedChunks>
+       <set>
+-        <option value="bundled-python-sdk-5a2391486177-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13763.11" />
++        <option value="bundled-js-predefined-1d06a55b98c1-74d2a5396914-JavaScript-PY-241.14494.241" />
++        <option value="bundled-python-sdk-0509580d9d50-28c9f5db9ffe-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.14494.241" />
+       </set>
+     </attachedChunks>
+   </component>
+@@ -99,6 +157,7 @@
+       <option name="presentableId" value="Default" />
+       <updated>1711453014273</updated>
+       <workItem from="1711453022637" duration="78156000" />
++      <workItem from="1713547894349" duration="4087000" />
+     </task>
+     <task id="LOCAL‎-00001" summary="hello_word">
+       <option name="closed" value="true" />
+@@ -220,6 +279,8 @@
+     </breakpoint-manager>
+   </component>
+   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+-    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1713546437766" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
++    <SUITE FILE_PATH="coverage/Trivia_King$p2_client.coverage" NAME="p2 client Coverage Results" MODIFIED="1713549200203" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/Downloads" />
++    <SUITE FILE_PATH="coverage/Trivia_King$7_bot_clients.coverage" NAME="7 bot clients Coverage Results" MODIFIED="1713549355094" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
++    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1713549352525" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+   </component>
+ </project>
+\ No newline at end of file
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"Black\">\r\n    <option name=\"sdkName\" value=\"Python 3.12 (Trivia_King)\" />\r\n  </component>\r\n  <component name=\"ProjectRootManager\" version=\"2\" project-jdk-name=\"Python 3.12 (Trivia_King)\" project-jdk-type=\"Python SDK\" />\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/misc.xml b/.idea/misc.xml
+--- a/.idea/misc.xml	(revision f63b5333f818a1ab38360f2e11dda2e9212d630a)
++++ b/.idea/misc.xml	(date 1713548583957)
+@@ -3,5 +3,5 @@
+   <component name="Black">
+     <option name="sdkName" value="Python 3.12 (Trivia_King)" />
+   </component>
+-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (Trivia_King)" project-jdk-type="Python SDK" />
++  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9 (pythonProject)" project-jdk-type="Python SDK" />
+ </project>
+\ No newline at end of file
