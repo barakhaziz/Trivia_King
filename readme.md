@@ -54,18 +54,18 @@ This Trivia Client-Server application is a multi-player trivia game where player
 - **Condition**: If at least one player answers correctly.
 - **Action**: Only players who answered incorrectly are removed from the game. The server notifies all players that there was at least one correct answer, and prepares another question. The list of connected clients is updated to only include those who answered correctly.
 
-### Case 5: One Player Left
+### Case 5: One Incorrect Answer and Others Didn't Respond
+- **Condition**: Specifically when only one player answers and is incorrect, while other players do not respond.
+- **Action**: This results in a game over scenario without a winner, lead to case 7
+
+### Game Over - Case 6: One Player Left
 - **Condition**: When only one player remains after a round ends.
 - **Action**: The server declares this player as the winner, sends a winner announcement to all initially connected players, and then closes all sessions.
 
-### Case 6: No Players Left
-- **Condition**: If no players are left in the game either due to disconnections or everyone being removed for incorrect answers.
+### Game Over - Case 7: No Players Left
+- **Condition**: If no players are left in the game either due to disconnections or case 5.
 - **Action**: The server announces that there is no winner and closes all active sessions.
-
-### Case 7: One Incorrect Answer and Others Didn't Respond
-- **Condition**: Specifically when only one player answers and is incorrect, while other players do not respond.
-- **Action**: This results in a game over scenario without a winner, similar to Case 6 but triggered by the lack of engagement rather than a filtering through incorrect responses.
-- 
+  
 ## Getting Started
 To participate in the game, clients should run the client application which will automatically detect available servers and connect. Ensure that the server application is running and accessible over the network the clients are on.
 
