@@ -5,6 +5,7 @@ import random
 import time
 import logging
 from datetime import datetime
+
 # Constants
 UDP_PORT = 13117
 TCP_PORT = 5555
@@ -351,7 +352,15 @@ class TriviaServer:
                     client[1].close()  # Close each client's TCP connection
                 print_color("Game over, sending out offer requests...", "cyan")
 
-                # init all the variables for the next game
+                #init all the variables for the next game
+                log_file_path = 'server.log'
+                winner, wins = self.find_top_winner(log_file_path)
+                most_common_question, occurrence = self.find_most_common_question(log_file_path)
+                most_common_answer, count = self.find_most_common_answer(log_file_path)
+                print("Application Statistics")
+                print_color(f"The client with the most wins is {winner} with {wins} wins.","blue")
+                print_color(f"The most common answer was '{most_common_answer}' with {count} occurrences.","blue")
+                print_color(f"The most common question was: '{most_common_question}' asked {occurrence} times.","blue")
                 self.init_struct_for_new_game()
 
         except Exception as e:
@@ -359,6 +368,7 @@ class TriviaServer:
 
 
     def init_struct_for_new_game(self):
+
         self.game_inactive_players = []
         self.origin_clients = []
         self.clients_didnt_answer = []
@@ -412,7 +422,7 @@ class TriviaServer:
         conn.close()
         self.clients = [(name, sock) for name, sock in self.clients if sock != conn]
         self.origin_clients = [(name, sock) for name, sock in self.origin_clients if sock != conn]
-        print_color(f"Disconnected: {client_name} has been removed from the game.", "red")
+        #print_color(f"Disconnected: {client_name} has been removed from the game.", "red")
         logging.info(f"Disconnected: {client_name} has been removed from the game.")
 
     def cancel_game_due_to_insufficient_players(self):
@@ -446,25 +456,79 @@ class TriviaServer:
         logging.error("Could not find an available port within the range.")
         raise Exception("Could not find an available port within the range.")
 
-    def most_frequent_character(char_list):
-        # Count frequency of each character in the list
-        frequency = {}
-        for char in char_list:
-            if char in frequency:
-                frequency[char] += 1
-            else:
-                frequency[char] = 1
+    def find_top_winner(self, log_file_path):
+        import re
+        from collections import defaultdict
 
-        # Find the character with the maximum frequency
-        max_freq = 0
-        max_char = None
-        for char, count in frequency.items():
-            if count > max_freq:
-                max_freq = count
-                max_char = char
+        winner_regex = re.compile(r"Congratulations to the winner: (\S+)")
+        win_count = defaultdict(int)
 
-        return max_char
+        try:
+            with open(log_file_path, 'r') as file:
+                for line in file:
+                    match = winner_regex.search(line)
+                    if match:
+                        winner = match.group(1)
+                        win_count[winner] += 1
 
+            if not win_count:
+                return "No winners found", 0
+            top_winner = max(win_count, key=win_count.get)
+            return top_winner, win_count[top_winner]
+        except Exception as e:
+            logging.error(f"Failed to read log file or find top winner: {e}")
+            return "Error finding winner", 0
+
+    def find_most_common_answer(self, log_file_path):
+        import re
+        from collections import defaultdict
+        from collections import Counter
+
+        # Updated regex to capture answers and who answered them
+        answer_regex = re.compile(r"Received answer '(\w)' from (\S+) at")
+        answer_count = defaultdict(int)
+
+        try:
+            with open(log_file_path, 'r') as file:
+                for line in file:
+                    match = answer_regex.search(line)
+                    if match:
+                        answer = match.group(1)  # Capture the answer provided
+                        answer_count[answer] += 1
+
+            if not answer_count:
+                return "No answers found", 0
+            # Using Counter to find the most common answer
+            most_common_answer, count = Counter(answer_count).most_common(1)[0]
+            return most_common_answer, count
+        except Exception as e:
+            logging.error(f"Failed to read log file or find the most common answer: {e}")
+            return "Error finding the most common answer", 0
+
+    def find_most_common_question(self, log_file_path):
+        import re
+        from collections import defaultdict, Counter
+        import logging
+
+        # Regex pattern to extract the question asked in each round
+        question_regex = re.compile(r"The asked question of round \d+ is (.+)$")
+        question_count = defaultdict(int)
+
+        try:
+            with open(log_file_path, 'r') as file:
+                for line in file:
+                    match = question_regex.search(line)
+                    if match:
+                        question = match.group(1).strip()
+                        question_count[question] += 1
+
+            if not question_count:
+                return "No questions found", 0
+            most_common_question, count = Counter(question_count).most_common(1)[0]
+            return most_common_question, count
+        except Exception as e:
+            logging.error(f"Failed to read log file or find the most common question: {e}")
+            return "Error finding the most common question", 0
 
 # TOP PRIORITY TASKS FOR ALL OF US!
 # 1. check the assignment requirements again! every step, everyone by its own!
