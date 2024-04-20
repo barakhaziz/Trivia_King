@@ -103,7 +103,6 @@ class TriviaClient:
                         # Name is taken, generate a new one and reconnect
                         self.generate_new_name()
                         self.close_connection()
-
                     # here we should verify if the name is taken message
                     # then if so, change the self.name to a new name
                     # and again call the function connect_to_server

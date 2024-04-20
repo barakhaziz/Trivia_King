@@ -47,6 +47,7 @@ class TriviaServer:
     def __init__(self):
         self.running = True
         self.origin_clients = []
+        self.game_characters = []
         self.clients_didnt_answer = []
         self.clients = []
         self.correct_answers = []
@@ -74,9 +75,10 @@ class TriviaServer:
         game_start_time = datetime.now()
         logging.info(f"Game started at {game_start_time}")
         self.tcp_socket.listen(5)  # Listen for incoming connections
-        print(f"Server started, listening on IP address {self.udp_socket.getsockname()[0]}...\n")
+        print(f"\033[34mServer started, listening on IP address {self.udp_socket.getsockname()[0]}...\033[0m\n")
         threading.Thread(target=self.broadcast_message).start()
         threading.Thread(target=self.wait_for_clients(start_time)).start()
+
 
     def broadcast_message(self):
         while True:
@@ -172,10 +174,10 @@ class TriviaServer:
                     message += f" == \n"
                 else:
                     player_names = " and ".join(client[0] for client in self.clients)
-                    message = f"Round {round}, played by {player_names}:\n"
+                    message = f"\nRound {round}, played by {player_names}:\n"
 
                 stat = random.choice(true_false)
-                message += f"True or False: {stat}\nEnter your answer (T/F):\n"
+                message += f"True or False: {stat}\nEnter your answer (T/F):"
                 logging.info(f"The asked question of round {round} is {stat}")
                 round += 1
                 print(message)
@@ -193,15 +195,15 @@ class TriviaServer:
                     except socket.error as e:
                         logging.error(f"Error sending data to client {name}: {e}")
                         self.clients.remove(client)
-                        print(f"Error sending data to client {name}: {e}")
+                        print(f"\033[31Error sending data to client {name}: {e}.\033[0m")
                     except ConnectionResetError as e:
-                        logging.error(f"Connection with {name} reset by peer: {e}")
+                        logging.error(f"Connection with {name} reset by peer: {e}.\033[0m")
                         self.clients.remove(client)
-                        print(f"Connection with {name} reset by peer: {e}")
+                        print(f"\033[31Connection with {name} reset by peer: {e}")
                     except Exception as e:
-                        logging.error(f"Error sending data to client {name}: {e}")
+                        logging.error(f"\033[31Error sending data to client {name}: {e}.\033[0m")
                         self.clients.remove(client)
-                        print(f"Error sending data to client {name}: {e}")
+                        print(f"\033[31Error sending data to client {name}: {e}.\033[0m")
 
                 time.sleep(3)
                 for thread in threads:
@@ -239,10 +241,10 @@ class TriviaServer:
                         except socket.error as e:
                             # This exception handles the case where the socket is already closed or unreachable
                             logging.error(f"Client {name} disconnected from the game due the network error: {e}")
-                            print(f"Client {name} disconnected from the game due the network error: {e}")
+                            #print(f"Client {name} disconnected from the game due the network error: {e}")
                         except Exception as e:
                             logging.error(f"Unexpected error when trying to close connection with {name}: {e}")
-                            print(f"Unexpected error when trying to close connection with {name}: {e}")
+                            #print(f"Unexpected error when trying to close connection with {name}: {e}")
                     time.sleep(1.3)
                     #round += 1
 
@@ -270,14 +272,14 @@ class TriviaServer:
                 # case 3: all players answered incorrectly
                 # behavior: notify all players that all answered incorrectly and prepare another question
                 if incorrect_clients and not correct_clients and len(incorrect_clients) > 1:  # If all answered incorrectly, do not remove them
-                    logging.info(f"All players answered incorrectly at round {round}. Preparing another question...")
-                    print("All players answered incorrectly. Preparing another question...")
+                    logging.info(f"\nAll players answered incorrectly at round {round}. Preparing another question...")
+                    print("\033[31\nAll players answered incorrectly. Preparing another question...\033[0m")
                     for name, conn in incorrect_clients:
                         try:
                             conn.sendall("Everyone was wrong. Let's try another question.\n".encode('utf-8'))
                         except Exception as e:
                             logging.error(f"Error notifying client - case2 {name}: {e}")
-                            print(f"Error notifying client - case2 {name}: {e}")
+                            #print(f"Error notifying client - case2 {name}: {e}")
                     time.sleep(1.3)
                     #round += 1
                     continue
@@ -291,7 +293,7 @@ class TriviaServer:
                             conn.sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
                         except Exception as e:
                             logging.info(f"Error notifying client - case3 {name}: {e}")
-                            print(f"Error notifying client- case3 {name}: {e}")
+                            print(f"\033[31Error notifying client- case3 {name}: {e}\033[0m")
                     time.sleep(1.3)
                     #round += 1
 
@@ -304,8 +306,9 @@ class TriviaServer:
                 # case 5: only one player left in the game
                 # behavior: notify all players who is the winner and close the sockets with all the players
                 if len(self.clients) == 1:
-                    winner_message=f"Game over!\nCongratulations to the winner: {self.clients[0][0]}.\n"
-                    print(winner_message)
+                    #logging.info("most common character: ", self.most_frequent_character(self.game_characters))
+                    winner_message=f"\033[31\nGame over!\nCongratulations to the winner: {self.clients[0][0]}\n\033[0m"
+                    print(f" {self.clients[0][0]} Wins! {winner_message}")
                     logging.info(winner_message)
                     for client_name, socket_obj in self.origin_clients:
                         try:
@@ -316,12 +319,15 @@ class TriviaServer:
                             self.remove_client(socket_obj, client_name)
                         #print(f"Closing session for {client_name}\n")
                         # add error handling in case of fail close
-                        print(f"Session for {client_name} closed successfully")
+                        logging.info(f"Session for {client_name} closed successfully")
+                        #print(f"Session for {client_name} closed successfully")
 
                 # case 6: no one left in the game (no players)
                 # behavior: notify all players that there is no winner and close the sockets with all the players
                 else:
-                    no_winner_message = "Game over! No winner.\n"
+                    #logging.info("most common character: ", self.most_frequent_character(self.game_characters))
+                    no_winner_message = "\033[31\nGame over! No winner.\n "
+                    print(self.game_characters)
                     print(no_winner_message)
                     logging.info(no_winner_message)
                     for client_name, socket_obj in self.origin_clients:
@@ -347,12 +353,14 @@ class TriviaServer:
 
 
     def init_struct_for_new_game(self):
+
         self.game_inactive_players = []
         self.origin_clients = []
         self.clients_didnt_answer = []
         self.clients = []
         self.get_answer = False
         self.running = False
+        self.game_characters = []
         self.correct_answers = []
         self.start(time.time())
     def handle_client_answer(self, conn, stat, client_name):
@@ -369,19 +377,20 @@ class TriviaServer:
                 received_time = datetime.now()
                 logging.info(f"Received answer '{ans}' from {client_name} at {received_time}")
                 self.get_answer = True
+                self.game_characters.append(ans)
 
                 # Check if the answer is valid
                 if ans.lower() in ("y", "t", "1", "f", "n", "0"):
                     if ((ans.lower() in ("y", "t", "1") and stat in TRUE_STATEMENTS) or
                             (ans.lower() in ("n", "f", "0") and stat in FALSE_STATEMENTS)):
-                        print(f"{client_name} is correct!")
+                        print(f"\n{client_name} is correct!",end="")
                         logging.info(f"{client_name} is correct with the answer of {ans}!")
                         self.correct_answers.append(client_name)
                         self.clients_didnt_answer.remove((client_name, conn))
                         break  # Exit the loop as the client gave a correct response
                     else:
                         logging.info(f"{client_name} is incorrect the answer of {ans}!")
-                        print(f"{client_name} is incorrect!")
+                        print(f"\n{client_name} is incorrect!",end="")
                         self.clients_didnt_answer.remove((client_name, conn))
                         break  # Exit the loop as the client gave an incorrect but valid response
                 else:
@@ -398,7 +407,7 @@ class TriviaServer:
         conn.close()
         self.clients = [(name, sock) for name, sock in self.clients if sock != conn]
         self.origin_clients = [(name, sock) for name, sock in self.origin_clients if sock != conn]
-        print(f"Disconnected: {client_name} has been removed from the game.")
+        #print(f"Disconnected: {client_name} has been removed from the game.")
         logging.info(f"Disconnected: {client_name} has been removed from the game.")
 
     def cancel_game_due_to_insufficient_players(self):
@@ -412,7 +421,7 @@ class TriviaServer:
                 logging.error(f"Error closing connection for {client_name}: {e}")
         self.running = False
         logging.info("Game canceled due to insufficient players.")
-        print("Game canceled due to insufficient players.")
+        print("\033[31mGame canceled due to insufficient players.\033[0m")
 
     def find_available_port(self,max_attempts=50):
         for attempt in range(max_attempts):
@@ -431,6 +440,26 @@ class TriviaServer:
                 sock.close()
         logging.error("Could not find an available port within the range.")
         raise Exception("Could not find an available port within the range.")
+
+    def most_frequent_character(char_list):
+        # Count frequency of each character in the list
+        frequency = {}
+        for char in char_list:
+            if char in frequency:
+                frequency[char] += 1
+            else:
+                frequency[char] = 1
+
+        # Find the character with the maximum frequency
+        max_freq = 0
+        max_char = None
+        for char, count in frequency.items():
+            if count > max_freq:
+                max_freq = count
+                max_char = char
+
+        return max_char
+
 
 # TOP PRIORITY TASKS FOR ALL OF US!
 # 1. check the assignment requirements again! every step, everyone by its own!
@@ -459,7 +488,7 @@ class TriviaServer:
 
 
 # server bugs:
-
+# print the winner with new line: Charlie is correct!\nCharlie Wins! instead Charlie is correct! Charlie Wins!
 
 # FIXED bugs:
 # 1. FIXED! handle case of game over: only one player answer incorrectly and the other didn't answer - Amit
@@ -477,11 +506,11 @@ class TriviaServer:
 
 # Scenarios to test:
 # All the cases 1-7
-# The server disconnect from the clients by shutdown server and then client back to listening for offers
-# All the client disconnect from the server by shutdown client and then the server will send broadcast message
-# When game is over both client and server will disconnect from each other and the server will send broadcast message and client will back to listening for offers
+# The server disconnect from the clients by shutdown server and then client back to listening for offers - V
+# All the client disconnect from the server by shutdown client and then the server will send broadcast message - V
+# When game is over both client and server will disconnect from each other and the server will send broadcast message and client will back to listening for offers - V
 # Duplicate client name of non bot client in the game
-# Duplicate client name of bot client in the game
+# Duplicate client name of bot client in the game - V
 
 
 # Done
