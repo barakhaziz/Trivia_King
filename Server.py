@@ -81,7 +81,7 @@ class TriviaServer:
         self.starting_port = TCP_PORT
 
     def start(self, start_time=time.time()):
-        self.running=True
+        self.running = True
         game_start_time = datetime.now()
         logging.info(f"Game started at {game_start_time}")
         self.tcp_socket.listen(5)  # Listen for incoming connections
@@ -176,22 +176,20 @@ class TriviaServer:
                 if round == 1:
                     logging.info(f"Start new game at {datetime.now()}")
                     message = f"Welcome to the {self.server_name}, where we are answering trivia questions about NBA.\n"
-                    msg_a = message
                     counter = 1
                     for client in self.clients:
                         message += f"Player {counter} : {client[0]}\n"
-                        msg_b = "Player {counter} : {client[0]}\n"
                         counter += 1
                     message += f" == \n"
                 else:
                     player_names = " and ".join(client[0] for client in self.clients)
-                    message = f"Round {round}, played by {player_names}:\n"
+                    message = f"\033[96mRound {round}\033[0m, played by {player_names}:\n"
 
                 stat = random.choice(true_false)
-                message += f"True or False: {stat}\nEnter your answer (T/F):\n"
+                message += f"\033[93mTrue or False: {stat}\nEnter your answer (T/F):\n\033[0m"
                 logging.info(f"The asked question of round {round} is {stat}")
                 round += 1
-                print_color(message, "yellow")
+                print(message)
                 # Send the welcome message to all clients
                 threads = []
                 self.clients_didnt_answer = list(self.clients)

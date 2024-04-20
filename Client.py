@@ -13,6 +13,20 @@ MAGIC_COOKIE = 0xabcddcba
 SERVER_ADDRESS = '0.0.0.0'  # For listening for broadcasts
 SERVER_NO_RESPONSE_TIMEOUT = 45  # Timeout for server to respond to client connection
 
+
+def print_color(text, color):
+    colors = {
+        "red": "\033[91m",
+        "green": "\033[92m",
+        "yellow": "\033[93m",
+        "blue": "\033[94m",
+        "magenta": "\033[95m",
+        "cyan": "\033[96m",
+        "white": "\033[97m",
+        "end": "\033[0m",
+    }
+    print(colors[color] + text + colors["end"])
+
 class TriviaClient:
     def __init__(self, name=None, is_bot=False):
         if is_bot:
@@ -47,7 +61,7 @@ class TriviaClient:
         return f"BOT_{random.choice(names)}"
 
     def start(self):
-        print(f"Client {self.name} started, listening for offer requests...")
+        print_color(f"Client {self.name} started, listening for offer requests...", "cyan")
         threading.Thread(target=self.send_user_input).start()
         self.listen_to_broadcast()
 
@@ -59,14 +73,14 @@ class TriviaClient:
                 if magic_cookie == MAGIC_COOKIE and msg_type == 0x2:
                     server_name = data[5:37].decode('utf-8').strip()
                     self.server_port = struct.unpack("!H", data[37:39])[0]
-                    print(f"Received offer from {server_name} at address {addr[0]}, connecting...")
+                    print_color(f"Received offer from {server_name} at address {addr[0]}, connecting...", "green")
                     self.connect_to_server((addr[0], self.server_port))
                     break
                 time.sleep(1.3)
             except struct.error:
-                print("Received corrupted data")
+                print_color("Received corrupted data", "red")
             except Exception as e:
-                print(f"Error while listening for offers: {e}")
+                print_color(f"Error while listening for offers: {e}", "red")
             time.sleep(1.3)
 
 
@@ -84,10 +98,10 @@ class TriviaClient:
             else:
                 threading.Thread(target=self.receive_server_data).start()
         except socket.error as e:
-            print(f"Connection failed: {e}")
+            print_color(f"Connection failed: {e}", "red")
             self.close_connection()
         except Exception as e:
-            print(f"Error connecting to server: {e}")
+            print_color(f"Error connecting to server: {e}", "red")
             self.tcp_socket.close()  # Ensure the socket is closed on error
             self.tcp_socket = None  # Reset the socket to None after closing
             sys.exit(1)
@@ -112,7 +126,7 @@ class TriviaClient:
                     break
             except socket.timeout as e:
                 # fix this printing
-                print("Timeout! server not reachable")
+                print_color("Timeout! server not reachable", "red")
                 #print("receive_server_data: Server response timed out. set in the function 'connect_to_server' -> self.tcp_socket.settimeout(40)")
                 self.close_connection()  # Close connection after timeout
                 break
@@ -168,7 +182,7 @@ class TriviaClient:
                 self.tcp_socket.close()
                 os._exit(0)
             except KeyboardInterrupt:
-                print("send_user_input: Exiting...")
+                print_color("send_user_input: Exiting...", "red")
                 self.running = False
                 self.tcp_socket.close()
                 os._exit(0)
@@ -181,20 +195,20 @@ class TriviaClient:
 
     def bot_behavior(self):
         """Simulate bot behavior by waiting for a question and then automatically answering."""
-        print("Bot behavior started.")
+        print_color("Bot behavior started.", "green")
         out_of_game = False  # Flag to indicate whether the bot is out of the game
         while self.running:
             try:
                 # Wait for data from the server
                 data = self.tcp_socket.recv(1024).decode('utf-8').strip()
                 if "You answered incorrectly and are out of the game." in data:
-                    print("You answered incorrectly and are out of the game.")
+                    print_color("You answered incorrectly and are out of the game.", "magenta")
                     out_of_game = True  # Set the flag indicating the bot is out of the game
                     continue  # Continue listening to the server without sending answers
                 if f"Name is taken, choose a new one." in data:
                     # Name is taken, generate a new one and reconnect
                     new_bot_name=self.generate_bot_name()
-                    print(f"Name {self.name} is taken, changing to {new_bot_name}")
+                    print_color(f"Name {self.name} is taken, changing to {new_bot_name}", "yellow")
                     self.name = new_bot_name
                     self.close_connection()
                 if data:
@@ -231,9 +245,9 @@ class TriviaClient:
                 self.tcp_socket.close()
                 # print("TCP socket closed successfully.")
         except socket.error as e:
-            print(f"Error closing TCP socket: {e}")
+            print_color(f"Error closing TCP socket: {e}", "red")
         except Exception as e:
-            print(f"Unexpected error when closing TCP socket: {e}")
+            print_color(f"Unexpected error when closing TCP socket: {e}", "red")
         finally:
             self.tcp_socket = None  # Ensure the socket is reset
 
@@ -243,9 +257,9 @@ class TriviaClient:
                 self.udp_socket.close()
                 # print("UDP socket closed successfully.")
         except socket.error as e:
-            print(f"Error closing UDP socket: {e}")
+            print_color(f"Error closing UDP socket: {e}", "red")
         except Exception as e:
-            print(f"Unexpected error when closing UDP socket: {e}")
+            print(f"Unexpected error when closing UDP socket: {e}", "red")
 
         # Reinitialize the UDP socket
         try:
@@ -256,13 +270,13 @@ class TriviaClient:
             self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))
             # print("UDP socket reinitialized successfully.")
         except socket.error as e:
-            print(f"Error reinitializing UDP socket: {e}")
+            print_color(f"Error reinitializing UDP socket: {e}", "red")
             return  # Stop attempting to restart if socket initialization fails
 
         # Attempt to restart the server activities
         try:
             self.running = True
-            print("Server disconnected, listening for offer requests....")
+            print_color("Server disconnected, listening for offer requests....", "blue")
             self.listen_to_broadcast()  # Restart listening for UDP broadcasts
         except Exception as e:
             #print(f"Error restarting broadcast listening: {e}")
