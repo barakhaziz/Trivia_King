@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="fixed bug 2 and 4">
+    <list default="true" id="4b125e54-2be9-48a8-902e-9cc7aee8c5a7" name="Changes" comment="# 1. FIXED in case of duplicate name, the clients wont stop generating the same name and keep try to connect server - Amit">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Client.py" beforeDir="false" afterPath="$PROJECT_DIR$/Client.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
@@ -102,7 +102,7 @@
       <option name="presentableId" value="Default" />
       <updated>1711453014273</updated>
       <workItem from="1711453022637" duration="78156000" />
-      <workItem from="1713570128437" duration="7656000" />
+      <workItem from="1713570128437" duration="16045000" />
     </task>
     <task id="LOCAL‎-00001" summary="hello_word">
       <option name="closed" value="true" />
@@ -192,7 +192,15 @@
       <option name="project" value="LOCAL" />
       <updated>1713572908805</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="# 1. FIXED in case of duplicate name, the clients wont stop generating the same name and keep try to connect server - Amit">
+      <option name="closed" value="true" />
+      <created>1713606728728</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1713606728728</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -221,14 +229,15 @@
     <MESSAGE value="add more tasks" />
     <MESSAGE value="# server bugs:&#10;# 1. FIXED! handle case of game over: only one player answer incorrectly and the other didn't answer - Amit" />
     <MESSAGE value="fixed bug 2 and 4" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixed bug 2 and 4" />
+    <MESSAGE value="# 1. FIXED in case of duplicate name, the clients wont stop generating the same name and keep try to connect server - Amit" />
+    <option name="LAST_COMMIT_MESSAGE" value="# 1. FIXED in case of duplicate name, the clients wont stop generating the same name and keep try to connect server - Amit" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/Client.py</url>
-          <line>131</line>
+          <line>163</line>
           <option name="timeStamp" value="59" />
         </line-breakpoint>
       </breakpoints>
@@ -242,6 +251,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1713606516327" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Trivia_King$main.coverage" NAME="main Coverage Results" MODIFIED="1713618574848" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

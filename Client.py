@@ -5,7 +5,7 @@ import struct
 import sys
 import random
 import time
-
+import msvcrt
 
 
 UDP_PORT = 13117
@@ -30,6 +30,7 @@ class TriviaClient:
         self.name_suffix = 0
         self.server_port = None
         self.running = True
+        self.server_found= False
 
     def generate_new_name(self):
         """ Generate a new name by incrementing a suffix. """
@@ -61,10 +62,12 @@ class TriviaClient:
                     print(f"Received offer from {server_name} at address {addr[0]}, connecting...")
                     self.connect_to_server((addr[0], self.server_port))
                     break
+                time.sleep(1.3)
             except struct.error:
                 print("Received corrupted data")
             except Exception as e:
                 print(f"Error while listening for offers: {e}")
+            time.sleep(1.3)
 
 
     def connect_to_server(self, server_addr):
@@ -82,8 +85,7 @@ class TriviaClient:
                 threading.Thread(target=self.receive_server_data).start()
         except socket.error as e:
             print(f"Connection failed: {e}")
-            self.tcp_socket.close()  # Properly close the socket on failure to connect
-            self.tcp_socket = None  # Reset the socket to None after closing
+            self.close_connection()
         except Exception as e:
             print(f"Error connecting to server: {e}")
             self.tcp_socket.close()  # Ensure the socket is closed on error
@@ -106,32 +108,63 @@ class TriviaClient:
                     # then if so, change the self.name to a new name
                     # and again call the function connect_to_server
                 else:
-                    print("receive_server_data: Server has closed the connection.")
+                    #print("receive_server_data: Server has closed the connection.")
                     self.close_connection()  # Close on server initiated disconnection
                     break
-            except socket.timeout:
+            except socket.timeout as e:
                 # fix this printing
-                print("receive_server_data: Server response timed out. set in the function 'connect_to_server' -> self.tcp_socket.settimeout(40)")
+                print("Timeout! server not reachable")
+                #print("receive_server_data: Server response timed out. set in the function 'connect_to_server' -> self.tcp_socket.settimeout(40)")
                 self.close_connection()  # Close connection after timeout
                 break
             except socket.error as e:
-                print(f"receive_server_data: Network error: {e}")
+                #print(f"receive_server_data: Network error: {e}")
                 self.close_connection()  # Close connection on network error
                 break
             except RuntimeError as e:
                 self.close_connection()
-                print(f"receive_server_data: Connection closed by server: {e}")
+                #print(f"receive_server_data: Connection closed by server: {e}")
                 break
 
-
+    # def send_user_input(self):
+    #     while self.running:
+    #         try:
+    #             if msvcrt.kbhit():
+    #                 user_input = msvcrt.getche()
+    #                 if user_input == b'\r':  # Check if the enter key is pressed
+    #                     print()  # Move to the next line
+    #                     self.tcp_socket.sendall(
+    #                         b'\n')  # Send newline character to server to process the input as completed
+    #                 elif user_input == b'\x03':  # Check for Ctrl+C
+    #                     raise KeyboardInterrupt
+    #                 else:
+    #                     self.tcp_socket.sendall(
+    #                         user_input + b'\n')  # Send each character immediately followed by a newline
+    #         except socket.error as e:
+    #             print(f"send_user_input: Network error: {e}")
+    #             self.running = False
+    #             self.tcp_socket.close()
+    #             os._exit(0)
+    #         except KeyboardInterrupt:
+    #             print("send_user_input: Exiting...")
+    #             self.running = False
+    #             self.tcp_socket.close()
+    #             os._exit(0)
+    #         except Exception as e:
+    #             print(f"send_user_input: Error sending data: {e}")
+    #             self.running = False
+    #             self.tcp_socket.close()
+    #             os._exit(1)
+    #         time.sleep(0.1)
 
     def send_user_input(self):
         while self.running:
             try:
                 user_input = input()
                 self.tcp_socket.sendall(user_input.encode('utf-8') + b'\n')
+                time.sleep(1.3)
             except socket.error as e:
-                print(f"send_user_input: Network error: {e}")
+                #print(f"send_user_input: Network error: {e}")
                 self.running = False
                 self.tcp_socket.close()
                 os._exit(0)
@@ -141,15 +174,14 @@ class TriviaClient:
                 self.tcp_socket.close()
                 os._exit(0)
             except Exception as e:
-                print(f"send_user_input:Error sending data: {e}")
+                #print(f"send_user_input:Error sending data: {e}")
                 self.running = False
                 self.tcp_socket.close()
                 os._exit(1)
-            time.sleep(1)
+            time.sleep(1.3)
 
     def bot_behavior(self):
         """Simulate bot behavior by waiting for a question and then automatically answering."""
-
         out_of_game = False  # Flag to indicate whether the bot is out of the game
         while self.running and not out_of_game:
             try:
@@ -165,7 +197,6 @@ class TriviaClient:
                     print(f"Name {self.name} is taken, changing to {new_bot_name}")
                     self.name = new_bot_name
                     self.close_connection()
-
                 if data:
                     print(data)  # Print the received message
                     # Only generate an answer if not out of the game
@@ -181,21 +212,66 @@ class TriviaClient:
                 self.close_connection()  # Close connection after timeout
                 break
             except socket.error as e:
-                print(f"Network error: {e}")
+                #print(f"Network error: {e}")
                 self.close_connection()  # Close connection on network error
                 break
             except RuntimeError as e:
                 self.close_connection()
-                print(f"Connection closed by server: {e}")
+                #print(f"Connection closed by server: {e}")
                 break
 
     def close_connection(self):
-        print("Server disconnected, listening for offer requests...")
-        self.running = False
-        self.tcp_socket.close()
-        self.tcp_socket = None  # Reset the socket
-        self.running = True
-        self.listen_to_broadcast()  # Restart listening for UDP broadcasts
+        #print("Server disconnected, attempting to close connection and restart broadcasting...")
+        self.running = False  # Stop the client's operations temporarily to reset connections
+
+        try:
+            if self.tcp_socket is not None:
+                self.tcp_socket.close()
+                # print("TCP socket closed successfully.")
+        except socket.error as e:
+            print(f"Error closing TCP socket: {e}")
+        except Exception as e:
+            print(f"Unexpected error when closing TCP socket: {e}")
+        finally:
+            self.tcp_socket = None  # Ensure the socket is reset
+
+        # Properly close the UDP socket before re-initializing it
+        try:
+            if self.udp_socket is not None:
+                self.udp_socket.close()
+                # print("UDP socket closed successfully.")
+        except socket.error as e:
+            print(f"Error closing UDP socket: {e}")
+        except Exception as e:
+            print(f"Unexpected error when closing UDP socket: {e}")
+
+        # Reinitialize the UDP socket
+        try:
+            self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))
+            # print("UDP socket reinitialized successfully.")
+        except socket.error as e:
+            print(f"Error reinitializing UDP socket: {e}")
+            return  # Stop attempting to restart if socket initialization fails
+
+        # Attempt to restart the server activities
+        try:
+            self.running = True
+            print("Server disconnected, listening for offer requests....")
+            self.listen_to_broadcast()  # Restart listening for UDP broadcasts
+        except Exception as e:
+            #print(f"Error restarting broadcast listening: {e}")
+            self.running = False  # Ensure the client does not continue in an erroneous state
+
+    # def close_connection(self):
+    #     print("Server disconnected, listening for offer requests...")
+    #     self.running = False
+    #     self.tcp_socket.close()
+    #     self.tcp_socket = None  # Reset the socket
+    #     self.running = True
+    #     self.listen_to_broadcast()  # Restart listening for UDP broadcasts
 
 
 

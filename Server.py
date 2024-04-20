@@ -86,7 +86,7 @@ class TriviaServer:
             self.udp_socket.sendto(message, broadcast_address)
             if not self.running:  # Add a condition to stop if server stops running
                 break
-            time.sleep(1)
+            time.sleep(1.3)
             # Sleep for a short duration to avoid flooding the network
 
     def wait_for_clients(self, start_time=time.time()):
@@ -101,7 +101,7 @@ class TriviaServer:
                 thread=threading.Thread(target=self.handle_tcp_client, args=(conn, tcp_addr))
                 threads.append(thread)# Add the thread to the list
                 thread.start()  # Join each thread
-                time.sleep(1)
+                time.sleep(1.3)
             except socket.timeout as e:
                 logging.error(f"Accepting new client timed out: {e}")
                 if time.time() - start_time >= GAME_DURATION and len(self.clients) >= 2:
@@ -112,6 +112,7 @@ class TriviaServer:
             except Exception as e:
                 logging.error(f"An error occurred while accepting new connections: {e}")
                 print(f"An error occurred while accepting new connections: {e}")
+            time.sleep(1.3)
 
     def handle_tcp_client(self, conn, addr):
         try:
@@ -192,6 +193,7 @@ class TriviaServer:
                         logging.error(f"Error sending data to client {name}: {e}")
                         print(f"Error sending data to client {name}: {e}")
 
+                time.sleep(1.3)
                 for thread in threads:
                     thread.join()
 
@@ -210,6 +212,7 @@ class TriviaServer:
                             logging.error(f"Error notifying client - case1 {name}: {e}")
                             print(f"Error notifying client - case1 {name}: {e}")
                     self.notify_inactive_players(round)
+                    time.sleep(1.3)
                     round += 1
                     continue
                 # case 2: some players didn't answer in the current round
@@ -249,6 +252,7 @@ class TriviaServer:
                 if len(incorrect_clients) == 1 and len(correct_clients) == 0 and len(self.clients_didnt_answer) + len(incorrect_clients) == len(self.clients):
                     incorrect_clients[0][1].sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
                     self.clients=[]
+                    time.sleep(1.3)
                     continue
 
                 # case 3: all players answered incorrectly
@@ -262,6 +266,7 @@ class TriviaServer:
                         except Exception as e:
                             logging.error(f"Error notifying client - case2 {name}: {e}")
                             print(f"Error notifying client - case2 {name}: {e}")
+                    time.sleep(1.3)
                     round+= 1
                     continue
 
@@ -370,7 +375,7 @@ class TriviaServer:
                     print("Invalid input. Please send 'T' or 'F'.")
                     conn.sendall(
                         "Invalid input. Please send 'T' or 'F'.\n".encode('utf-8'))  # Prompt for correct input
-                time.sleep(1)
+                time.sleep(1.3)
         except Exception as e:
             logging.error(f"Error while receiving answer from {client_name}: {e}")
             self.remove_client(conn, client_name)
@@ -435,27 +440,36 @@ class TriviaServer:
 
 # bugs
 # clients bugs:
-# 1. FIXED in case of duplicate name, the clients wont stop generating the same name and keep try to connect server - Amit
-# 2. FIXED! bot not remove clients from game after first round: test 7 bots client file
-# 3. the client print wired messages: getting 2 broadcast from 2 servers although its the same server(different ips)
-# 4. FIXED! in game with bots, there is no winner in case of one correct answer and all the rest are wrong (basically like 2)
-# 5. inactive clients prints 2 time the message "round x but you are out of the game" - Amit
-# 6. the client didn't start listening for offers after the server close connection
+# 1. the client print wired messages: getting 2 broadcast from 2 servers although its the same server(different ips)
+# 2. inactive clients prints 2 time the message "round x but you are out of the game" - Amit
+# 3. In case client type invalid input for the whole round, the server will do hard remove from the game
 
 
 # server bugs:
+
+
+# FIXED bugs:
 # 1. FIXED! handle case of game over: only one player answer incorrectly and the other didn't answer - Amit
+# 2. FIXED! the client didn't start listening for offers after the server close connection - Amit
+# 3. FIXED! in game with bots, there is no winner in case of one correct answer and all the rest are wrong (basically like 2) - Amit
+# 4. FIXED in case of duplicate name, the clients wont stop generating the same name and keep try to connect server - Amit
+# 5. FIXED! bot not remove clients from game after first round: test 7 bots client file - Amit
+
 
 # Nice to have\to consider - please work only if all the bugs are fixed:
 # 1. handle case where before game start, the client connect and then disconnect due to network error
 # 2. how to identify when client disconnect due to network error or didn't answer
 # 3. generate new questions and not hard coded questions, oded suggestion
 
-# mechanisms:
-# 1. server disconnect handling: if no answer from the server, the client has timeout of SERVER_NO_RESPONSE_TIMEOUT
-# 2. if only one player is connected, the server will wait WAIT_FOR_2_CLIENTS_AT_LEAST and then cancel the game
-# 3. when game ended, the server will send broadcast message to all clients and be ready to start a new game (not just broadcast)
-# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session
+
+# Scenarios to test:
+# All the cases 1-7
+# The server disconnect from the clients by shutdown server and then client back to listening for offers
+# All the client disconnect from the server by shutdown client and then the server will send broadcast message
+# When game is over both client and server will disconnect from each other and the server will send broadcast message and client will back to listening for offers
+# Duplicate client name of non bot client in the game
+# Duplicate client name of bot client in the game
+
 
 # Done
 # 1 send message to the client that the game is canceled - bug 1 fixed
@@ -467,3 +481,8 @@ class TriviaServer:
 
 
 
+# mechanisms:
+# 1. server disconnect handling: if no answer from the server, the client has timeout of SERVER_NO_RESPONSE_TIMEOUT
+# 2. if only one player is connected, the server will wait WAIT_FOR_2_CLIENTS_AT_LEAST and then cancel the game
+# 3. when game ended, the server will send broadcast message to all clients and be ready to start a new game (not just broadcast)
+# 4. client disconnect handling: if a player didn't answer in the round, he removed from the game completely - try close it session
