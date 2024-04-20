@@ -149,7 +149,7 @@ class TriviaServer:
             name, conn = client
             try:
                 logging.info(f"sending demo message to inactive client {name} at {datetime.now()}")
-                conn.sendall(f"Round {round + 1} but you are out of the game.\n".encode('utf-8'))
+                conn.sendall(f"Round {round} but you are out of the game.\n".encode('utf-8'))
             except Exception as e:
                 logging.error(f"Error notifying inactive client {name}: {e}")
                 print(f"Error notifying inactive client {name}: {e}")
@@ -177,6 +177,7 @@ class TriviaServer:
                 stat = random.choice(true_false)
                 message += f"True or False: {stat}\nEnter your answer (T/F):\n"
                 logging.info(f"The asked question of round {round} is {stat}")
+                round += 1
                 print(message)
                 # Send the welcome message to all clients
                 threads = []
@@ -189,11 +190,20 @@ class TriviaServer:
                         thread = threading.Thread(target=self.handle_client_answer, args=(conn, stat, name))
                         thread.start()
                         threads.append(thread)
+                    except socket.error as e:
+                        logging.error(f"Error sending data to client {name}: {e}")
+                        self.clients.remove(client)
+                        print(f"Error sending data to client {name}: {e}")
+                    except ConnectionResetError as e:
+                        logging.error(f"Connection with {name} reset by peer: {e}")
+                        self.clients.remove(client)
+                        print(f"Connection with {name} reset by peer: {e}")
                     except Exception as e:
                         logging.error(f"Error sending data to client {name}: {e}")
+                        self.clients.remove(client)
                         print(f"Error sending data to client {name}: {e}")
 
-                time.sleep(1.3)
+                time.sleep(3)
                 for thread in threads:
                     thread.join()
 
@@ -213,7 +223,7 @@ class TriviaServer:
                             print(f"Error notifying client - case1 {name}: {e}")
                     self.notify_inactive_players(round)
                     time.sleep(1.3)
-                    round += 1
+                    #round += 1
                     continue
                 # case 2: some players didn't answer in the current round
                 # assumptions: the player didn't answer because of 2 reasons: 
@@ -233,6 +243,8 @@ class TriviaServer:
                         except Exception as e:
                             logging.error(f"Unexpected error when trying to close connection with {name}: {e}")
                             print(f"Unexpected error when trying to close connection with {name}: {e}")
+                    time.sleep(1.3)
+                    #round += 1
 
 
 
@@ -267,7 +279,7 @@ class TriviaServer:
                             logging.error(f"Error notifying client - case2 {name}: {e}")
                             print(f"Error notifying client - case2 {name}: {e}")
                     time.sleep(1.3)
-                    round+= 1
+                    #round += 1
                     continue
 
                 # case 4: at least one player answered correctly
@@ -280,7 +292,8 @@ class TriviaServer:
                         except Exception as e:
                             logging.info(f"Error notifying client - case3 {name}: {e}")
                             print(f"Error notifying client- case3 {name}: {e}")
-
+                    time.sleep(1.3)
+                    #round += 1
 
                 self.clients = correct_clients  # Update the client list to only those who answered correctly
                 self.correct_answers= []  # Reset the correct answers list

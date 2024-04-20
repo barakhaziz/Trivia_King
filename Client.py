@@ -182,13 +182,14 @@ class TriviaClient:
 
     def bot_behavior(self):
         """Simulate bot behavior by waiting for a question and then automatically answering."""
+        print("Bot behavior started.")
         out_of_game = False  # Flag to indicate whether the bot is out of the game
-        while self.running and not out_of_game:
+        while self.running:
             try:
                 # Wait for data from the server
                 data = self.tcp_socket.recv(1024).decode('utf-8').strip()
                 if "You answered incorrectly and are out of the game." in data:
-                    print("Received notification of elimination from game.")
+                    print("You answered incorrectly and are out of the game.")
                     out_of_game = True  # Set the flag indicating the bot is out of the game
                     continue  # Continue listening to the server without sending answers
                 if f"Name is taken, choose a new one." in data:
@@ -219,6 +220,8 @@ class TriviaClient:
                 self.close_connection()
                 #print(f"Connection closed by server: {e}")
                 break
+        else:
+            self.close_connection()
 
     def close_connection(self):
         #print("Server disconnected, attempting to close connection and restart broadcasting...")
@@ -247,6 +250,7 @@ class TriviaClient:
 
         # Reinitialize the UDP socket
         try:
+            self.udp_socket.close()
             self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
