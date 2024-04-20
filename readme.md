@@ -2,6 +2,7 @@
 
 ## Overview
 This Trivia Client-Server application is a multi-player trivia game where players connect to a central server to answer trivia questions. The server manages game sessions, player connections, and trivia question delivery, while clients connect to the server to participate in the game rounds.
+In addition the server keep update a server.log and extract the following stats: most common question, player with most wins and most common answer!
 
 ## Server Workflow
 - **Start-Up**: Upon start-up, the server initializes and listens for incoming client connections over TCP after broadcasting its presence over UDP.
