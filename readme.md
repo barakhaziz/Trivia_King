@@ -32,6 +32,11 @@ This Trivia Client-Server application is a multi-player trivia game where player
 - **Non-response**: If a player does not respond during a round (i.e., does not answer a trivia question), their session is considered inactive.
 - **Session Termination**: The server then attempts to close the inactive session to free up resources and maintain game integrity. This ensures that only active players are retained in the game.
 
+### 5. Handle Duplicate Player names
+- **Genenal handling**: The client will disconnect from the server, generate new name (method of generating depends on client type) and start listening for server broadcast again
+- **BOT behavior**: choose another name from the poll of server names
+- **Non-BOT player behavior**: add a suffix to the player name. for example if name "Lebron" is taken, the client new name will be "Lebron_1" and so on.
+
 ## Getting Started
 To participate in the game, clients should run the client application which will automatically detect available servers and connect. Ensure that the server application is running and accessible over the network the clients are on.
 
