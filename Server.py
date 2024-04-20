@@ -119,9 +119,8 @@ class TriviaServer:
             if data:
                 team_name = data.decode('utf-8').strip()
                 if any(team_name == existing_name for existing_name, _ in self.origin_clients):
-                    conn.sendall("Name is taken, choose a new one.".encode('utf-8'))
-                    #conn.close()
-                    logging.warning(f"Duplicate name attempt from {addr[0]} denied.")
+                    conn.sendall(f"Name is taken, choose a new one.".encode('utf-8'))
+                    logging.warning(f"Duplicate name {team_name} attempt from {addr[0]} denied.")
                     print(f"Duplicate name attempt from {addr[0]} denied.")
                 else:
                     self.clients.append((team_name, conn))  # Store client conn
@@ -436,11 +435,12 @@ class TriviaServer:
 
 # bugs
 # clients bugs:
-# 1. in case of duplicate name, the clients wont stop generating the same name and keep try to connect server
+# 1. FIXED in case of duplicate name, the clients wont stop generating the same name and keep try to connect server - Amit
 # 2. FIXED! bot not remove clients from game after first round: test 7 bots client file
 # 3. the client print wired messages: getting 2 broadcast from 2 servers although its the same server(different ips)
 # 4. FIXED! in game with bots, there is no winner in case of one correct answer and all the rest are wrong (basically like 2)
 # 5. inactive clients prints 2 time the message "round x but you are out of the game" - Amit
+# 6. the client didn't start listening for offers after the server close connection
 
 
 # server bugs:

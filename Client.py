@@ -16,7 +16,7 @@ SERVER_NO_RESPONSE_TIMEOUT = 45  # Timeout for server to respond to client conne
 class TriviaClient:
     def __init__(self, name=None, is_bot=False):
         if is_bot:
-            self.name = "BOT_" + self.generate_random_name()
+            self.name = self.generate_bot_name()
         else:
             self.name = name if name else "Client"
 
@@ -27,16 +27,23 @@ class TriviaClient:
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.udp_socket.bind((SERVER_ADDRESS, UDP_PORT))
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.name_suffix = 0
+        self.server_port = None
         self.running = True
 
+    def generate_new_name(self):
+        """ Generate a new name by incrementing a suffix. """
+        self.name_suffix += 1
+        self.name = f"{self.name}_{self.name_suffix}"
+        print(f"New name generated: {self.name}")
 
-
-    def generate_random_name(self):
+    def generate_bot_name(self):
         # Generate a random name from a list of names or by a random string
-        names = ['Alice', 'Bob', 'Charlie', 'David', 'Eve', 'Frank', 'Grace', 'Hannah', 'Ivan', 'Jack', 'Kevin', 'Liam',
-                 'Mia', 'Nora', 'Oliver', 'Penny', 'Quinn', 'Riley', 'Sophia', 'Tom', 'Ursula', 'Violet', 'Will', 'Xander',
-                 'Yara', 'Zoe']
-        return random.choice(names)
+        names = ['LeBron', 'Kobe', 'Michael', 'Shaquille', 'Tim', 'Dirk', 'Stephen', 'Kevin', 'Kyrie', 'James',
+        'Anthony', 'Russell', 'Giannis', 'Carmelo', 'Dwight', 'Chris', 'Damian', 'Blake', 'Paul', 'Derrick',
+        'Dwyane', 'Manu', 'Tony', 'Pau', 'Karl', 'John', 'Ray', 'Scottie', 'Charles', 'Patrick',
+        'Yao', 'Tracy', 'Grant', 'Penny', 'Vince']
+        return f"BOT_{random.choice(names)}"
 
     def start(self):
         print(f"Client {self.name} started, listening for offer requests...")
@@ -50,9 +57,9 @@ class TriviaClient:
                 magic_cookie, msg_type = struct.unpack("!Ib", data[:5])
                 if magic_cookie == MAGIC_COOKIE and msg_type == 0x2:
                     server_name = data[5:37].decode('utf-8').strip()
-                    server_port = struct.unpack("!H", data[37:39])[0]
+                    self.server_port = struct.unpack("!H", data[37:39])[0]
                     print(f"Received offer from {server_name} at address {addr[0]}, connecting...")
-                    self.connect_to_server((addr[0], server_port))
+                    self.connect_to_server((addr[0], self.server_port))
                     break
             except struct.error:
                 print("Received corrupted data")
@@ -90,23 +97,30 @@ class TriviaClient:
                 if data:
                     message = data.decode('utf-8')
                     print(data.decode('utf-8'))
+                    if "Name is taken, choose a new one." in message:
+                        # Name is taken, generate a new one and reconnect
+                        self.generate_new_name()
+                        self.close_connection()
 
+                    # here we should verify if the name is taken message
+                    # then if so, change the self.name to a new name
+                    # and again call the function connect_to_server
                 else:
-                    print("Server has closed the connection.")
+                    print("receive_server_data: Server has closed the connection.")
                     self.close_connection()  # Close on server initiated disconnection
                     break
             except socket.timeout:
                 # fix this printing
-                print("Server response timed out. set in the function 'connect_to_server' -> self.tcp_socket.settimeout(40)")
+                print("receive_server_data: Server response timed out. set in the function 'connect_to_server' -> self.tcp_socket.settimeout(40)")
                 self.close_connection()  # Close connection after timeout
                 break
             except socket.error as e:
-                print(f"Network error: {e}")
+                print(f"receive_server_data: Network error: {e}")
                 self.close_connection()  # Close connection on network error
                 break
             except RuntimeError as e:
                 self.close_connection()
-                print(f"Connection closed by server: {e}")
+                print(f"receive_server_data: Connection closed by server: {e}")
                 break
 
 
@@ -116,11 +130,21 @@ class TriviaClient:
             try:
                 user_input = input()
                 self.tcp_socket.sendall(user_input.encode('utf-8') + b'\n')
-            except KeyboardInterrupt:
-                print("Exiting...")
+            except socket.error as e:
+                print(f"send_user_input: Network error: {e}")
                 self.running = False
                 self.tcp_socket.close()
                 os._exit(0)
+            except KeyboardInterrupt:
+                print("send_user_input: Exiting...")
+                self.running = False
+                self.tcp_socket.close()
+                os._exit(0)
+            except Exception as e:
+                print(f"send_user_input:Error sending data: {e}")
+                self.running = False
+                self.tcp_socket.close()
+                os._exit(1)
             time.sleep(1)
 
     def bot_behavior(self):
@@ -135,6 +159,12 @@ class TriviaClient:
                     print("Received notification of elimination from game.")
                     out_of_game = True  # Set the flag indicating the bot is out of the game
                     continue  # Continue listening to the server without sending answers
+                if f"Name is taken, choose a new one." in data:
+                    # Name is taken, generate a new one and reconnect
+                    new_bot_name=self.generate_bot_name()
+                    print(f"Name {self.name} is taken, changing to {new_bot_name}")
+                    self.name = new_bot_name
+                    self.close_connection()
 
                 if data:
                     print(data)  # Print the received message
