@@ -11,7 +11,7 @@ TCP_PORT = 5555
 MAGIC_COOKIE = 0xabcddcba
 #CLIENT_RESPONSE_TIMEOUT = 13  # in seconds
 GAME_DURATION = 10  # in seconds
-WAIT_FOR_CLIENT_ANSWER_IN_ROUND= 10
+WAIT_FOR_CLIENT_ANSWER_IN_ROUND = 10
 WAIT_FOR_2_CLIENTS_AT_LEAST = 25
 
 # Initialize logging
@@ -43,6 +43,19 @@ FALSE_STATEMENTS = [
     "LeBron James has never won an NBA MVP award."
 ]
 
+def print_color(text, color):
+    colors = {
+        "red": "\033[91m",
+        "green": "\033[92m",
+        "yellow": "\033[93m",
+        "blue": "\033[94m",
+        "magenta": "\033[95m",
+        "cyan": "\033[96m",
+        "white": "\033[97m",
+        "end": "\033[0m",
+    }
+    print(colors[color] + text + colors["end"])
+
 class TriviaServer:
     def __init__(self):
         self.running = True
@@ -67,18 +80,14 @@ class TriviaServer:
         self.tcp_socket.bind(('0.0.0.0', TCP_PORT))
         self.starting_port = TCP_PORT
 
-
-
-
     def start(self, start_time=time.time()):
         self.running=True
         game_start_time = datetime.now()
         logging.info(f"Game started at {game_start_time}")
         self.tcp_socket.listen(5)  # Listen for incoming connections
-        print(f"\033[34mServer started, listening on IP address {self.udp_socket.getsockname()[0]}...\033[0m\n")
+        print(f"Server started, listening on IP address {self.udp_socket.getsockname()[0]}...\n")
         threading.Thread(target=self.broadcast_message).start()
         threading.Thread(target=self.wait_for_clients(start_time)).start()
-
 
     def broadcast_message(self):
         while True:
@@ -92,7 +101,7 @@ class TriviaServer:
             # Sleep for a short duration to avoid flooding the network
 
     def wait_for_clients(self, start_time=time.time()):
-        threads= []
+        threads = []
         #start_time = time.time()
         # every conected thread(client) start the 10 sec from the begining
         self.tcp_socket.settimeout(GAME_DURATION)
@@ -100,7 +109,7 @@ class TriviaServer:
             try:
                 conn, tcp_addr = self.tcp_socket.accept()  # Accept TCP connection
                 logging.info(f"New client {tcp_addr[0]} connected.")
-                thread=threading.Thread(target=self.handle_tcp_client, args=(conn, tcp_addr))
+                thread = threading.Thread(target=self.handle_tcp_client, args=(conn, tcp_addr))
                 threads.append(thread)# Add the thread to the list
                 thread.start()  # Join each thread
                 time.sleep(1.3)
@@ -113,7 +122,7 @@ class TriviaServer:
                     self.cancel_game_due_to_insufficient_players()
             except Exception as e:
                 logging.error(f"An error occurred while accepting new connections: {e}")
-                print(f"An error occurred while accepting new connections: {e}")
+                print_color(f"An error occurred while accepting new connections: {e}", "red")
             time.sleep(1.3)
 
     def handle_tcp_client(self, conn, addr):
@@ -124,12 +133,12 @@ class TriviaServer:
                 if any(team_name == existing_name for existing_name, _ in self.origin_clients):
                     conn.sendall(f"Name is taken, choose a new one.".encode('utf-8'))
                     logging.warning(f"Duplicate name {team_name} attempt from {addr[0]} denied.")
-                    print(f"Duplicate name attempt from {addr[0]} denied.")
+                    print_color(f"Duplicate name attempt from {addr[0]} denied.", "red")
                 else:
                     self.clients.append((team_name, conn))  # Store client conn
                     self.origin_clients.append((team_name, conn))
                     logging.info(f"Team {team_name} connected from {addr[0]}")
-                    print(f"Team {team_name} connected from {addr[0]}\n")
+                    print_color(f"Team {team_name} connected from {addr[0]}\n", "green")
             else:
                 # Handle the case where no data is received i.e., potential data corruption or empty message
                 logging.error(f"No data received from {addr[0]}. Connection might be corrupt.")
@@ -154,7 +163,7 @@ class TriviaServer:
                 conn.sendall(f"Round {round} but you are out of the game.\n".encode('utf-8'))
             except Exception as e:
                 logging.error(f"Error notifying inactive client {name}: {e}")
-                print(f"Error notifying inactive client {name}: {e}")
+                print_color(f"Error notifying inactive client {name}: {e}", "red")
 
     def start_game(self):
         try:
@@ -167,20 +176,22 @@ class TriviaServer:
                 if round == 1:
                     logging.info(f"Start new game at {datetime.now()}")
                     message = f"Welcome to the {self.server_name}, where we are answering trivia questions about NBA.\n"
+                    msg_a = message
                     counter = 1
                     for client in self.clients:
                         message += f"Player {counter} : {client[0]}\n"
+                        msg_b = "Player {counter} : {client[0]}\n"
                         counter += 1
                     message += f" == \n"
                 else:
                     player_names = " and ".join(client[0] for client in self.clients)
-                    message = f"\nRound {round}, played by {player_names}:\n"
+                    message = f"Round {round}, played by {player_names}:\n"
 
                 stat = random.choice(true_false)
-                message += f"True or False: {stat}\nEnter your answer (T/F):"
+                message += f"True or False: {stat}\nEnter your answer (T/F):\n"
                 logging.info(f"The asked question of round {round} is {stat}")
                 round += 1
-                print(message)
+                print_color(message, "yellow")
                 # Send the welcome message to all clients
                 threads = []
                 self.clients_didnt_answer = list(self.clients)
@@ -195,15 +206,15 @@ class TriviaServer:
                     except socket.error as e:
                         logging.error(f"Error sending data to client {name}: {e}")
                         self.clients.remove(client)
-                        print(f"\033[31Error sending data to client {name}: {e}.\033[0m")
+                        print_color(f"Error sending data to client {name}: {e}", "red")
                     except ConnectionResetError as e:
-                        logging.error(f"Connection with {name} reset by peer: {e}.\033[0m")
+                        logging.error(f"Connection with {name} reset by peer: {e}")
                         self.clients.remove(client)
-                        print(f"\033[31Connection with {name} reset by peer: {e}")
+                        print_color(f"Connection with {name} reset by peer: {e}", "green")
                     except Exception as e:
-                        logging.error(f"\033[31Error sending data to client {name}: {e}.\033[0m")
+                        logging.error(f"Error sending data to client {name}: {e}")
                         self.clients.remove(client)
-                        print(f"\033[31Error sending data to client {name}: {e}.\033[0m")
+                        print_color(f"Error sending data to client {name}: {e}", "red")
 
                 time.sleep(3)
                 for thread in threads:
@@ -215,14 +226,14 @@ class TriviaServer:
                 # behavior: notify all players that no one answered and prepare another question
                 if self.clients == self.clients_didnt_answer and not self.get_answer:
                     logging.info(f"No one answered at round {round}. Preparing another question...")
-                    print("No one answered. Preparing another question...")
+                    print_color("No one answered. Preparing another question...", "cyan")
                     for name, conn in self.clients:
                         try:
                             logging.info(f"sending message to client about no answer at {datetime.now()}")
                             conn.sendall("No one answered. Preparing another question....\n".encode('utf-8'))
                         except Exception as e:
                             logging.error(f"Error notifying client - case1 {name}: {e}")
-                            print(f"Error notifying client - case1 {name}: {e}")
+                            print_color(f"Error notifying client - case1 {name}: {e}", "red")
                     self.notify_inactive_players(round)
                     time.sleep(1.3)
                     #round += 1
@@ -241,10 +252,10 @@ class TriviaServer:
                         except socket.error as e:
                             # This exception handles the case where the socket is already closed or unreachable
                             logging.error(f"Client {name} disconnected from the game due the network error: {e}")
-                            #print(f"Client {name} disconnected from the game due the network error: {e}")
+                            print_color(f"Client {name} disconnected from the game due the network error: {e}", "red")
                         except Exception as e:
                             logging.error(f"Unexpected error when trying to close connection with {name}: {e}")
-                            #print(f"Unexpected error when trying to close connection with {name}: {e}")
+                            print_color(f"Unexpected error when trying to close connection with {name}: {e}", "red")
                     time.sleep(1.3)
                     #round += 1
 
@@ -272,14 +283,14 @@ class TriviaServer:
                 # case 3: all players answered incorrectly
                 # behavior: notify all players that all answered incorrectly and prepare another question
                 if incorrect_clients and not correct_clients and len(incorrect_clients) > 1:  # If all answered incorrectly, do not remove them
-                    logging.info(f"\nAll players answered incorrectly at round {round}. Preparing another question...")
-                    print("\033[31\nAll players answered incorrectly. Preparing another question...\033[0m")
+                    logging.info(f"All players answered incorrectly at round {round}. Preparing another question...")
+                    print_color("All players answered incorrectly. Preparing another question...","magenta")
                     for name, conn in incorrect_clients:
                         try:
                             conn.sendall("Everyone was wrong. Let's try another question.\n".encode('utf-8'))
                         except Exception as e:
                             logging.error(f"Error notifying client - case2 {name}: {e}")
-                            #print(f"Error notifying client - case2 {name}: {e}")
+                            print_color(f"Error notifying client - case2 {name}: {e}", "red")
                     time.sleep(1.3)
                     #round += 1
                     continue
@@ -293,7 +304,7 @@ class TriviaServer:
                             conn.sendall("You answered incorrectly and are out of the game.\n".encode('utf-8'))
                         except Exception as e:
                             logging.info(f"Error notifying client - case3 {name}: {e}")
-                            print(f"\033[31Error notifying client- case3 {name}: {e}\033[0m")
+                            print_color(f"Error notifying client- case3 {name}: {e}", "red")
                     time.sleep(1.3)
                     #round += 1
 
@@ -306,9 +317,8 @@ class TriviaServer:
                 # case 5: only one player left in the game
                 # behavior: notify all players who is the winner and close the sockets with all the players
                 if len(self.clients) == 1:
-                    #logging.info("most common character: ", self.most_frequent_character(self.game_characters))
-                    winner_message=f"\033[31\nGame over!\nCongratulations to the winner: {self.clients[0][0]}\n\033[0m"
-                    print(f" {self.clients[0][0]} Wins! {winner_message}")
+                    winner_message=f"Game over!\nCongratulations to the winner: {self.clients[0][0]}.\n"
+                    print_color(winner_message, "white")
                     logging.info(winner_message)
                     for client_name, socket_obj in self.origin_clients:
                         try:
@@ -319,16 +329,14 @@ class TriviaServer:
                             self.remove_client(socket_obj, client_name)
                         #print(f"Closing session for {client_name}\n")
                         # add error handling in case of fail close
-                        logging.info(f"Session for {client_name} closed successfully")
-                        #print(f"Session for {client_name} closed successfully")
+                        print_color(f"Session for {client_name} closed successfully", "green")
 
                 # case 6: no one left in the game (no players)
                 # behavior: notify all players that there is no winner and close the sockets with all the players
                 else:
-                    #logging.info("most common character: ", self.most_frequent_character(self.game_characters))
-                    no_winner_message = "\033[31\nGame over! No winner.\n "
-                    print(self.game_characters)
-                    print(no_winner_message)
+                    no_winner_message = "Game over! No winner.\n"
+                    #print(self.game_characters)
+                    print_color(no_winner_message, "white")
                     logging.info(no_winner_message)
                     for client_name, socket_obj in self.origin_clients:
                         try:
@@ -339,11 +347,11 @@ class TriviaServer:
                             self.remove_client(socket_obj, client_name)
                         #print(f"Closing session for {client_name}\n")
                         # add error handling in case of fail close
-                        print(f"Session for {client_name} closed successfully")
+                        print_color(f"Session for {client_name} closed successfully", "green")
 
                 for client in self.clients:
                     client[1].close()  # Close each client's TCP connection
-                print("Game over, sending out offer requests...")
+                print_color("Game over, sending out offer requests...", "cyan")
 
                 # init all the variables for the next game
                 self.init_struct_for_new_game()
@@ -353,7 +361,6 @@ class TriviaServer:
 
 
     def init_struct_for_new_game(self):
-
         self.game_inactive_players = []
         self.origin_clients = []
         self.clients_didnt_answer = []
@@ -383,18 +390,18 @@ class TriviaServer:
                 if ans.lower() in ("y", "t", "1", "f", "n", "0"):
                     if ((ans.lower() in ("y", "t", "1") and stat in TRUE_STATEMENTS) or
                             (ans.lower() in ("n", "f", "0") and stat in FALSE_STATEMENTS)):
-                        print(f"\n{client_name} is correct!",end="")
+                        print_color(f"{client_name} is correct!", "cyan")
                         logging.info(f"{client_name} is correct with the answer of {ans}!")
                         self.correct_answers.append(client_name)
                         self.clients_didnt_answer.remove((client_name, conn))
                         break  # Exit the loop as the client gave a correct response
                     else:
                         logging.info(f"{client_name} is incorrect the answer of {ans}!")
-                        print(f"\n{client_name} is incorrect!",end="")
+                        print_color(f"{client_name} is incorrect!", "magenta")
                         self.clients_didnt_answer.remove((client_name, conn))
                         break  # Exit the loop as the client gave an incorrect but valid response
                 else:
-                    print("Invalid input. Please send 'T' or 'F'.")
+                    print_color("Invalid input. Please send 'T' or 'F'.", "red")
                     conn.sendall(
                         "Invalid input. Please send 'T' or 'F'.\n".encode('utf-8'))  # Prompt for correct input
                 time.sleep(1.3)
@@ -407,7 +414,7 @@ class TriviaServer:
         conn.close()
         self.clients = [(name, sock) for name, sock in self.clients if sock != conn]
         self.origin_clients = [(name, sock) for name, sock in self.origin_clients if sock != conn]
-        #print(f"Disconnected: {client_name} has been removed from the game.")
+        print_color(f"Disconnected: {client_name} has been removed from the game.", "red")
         logging.info(f"Disconnected: {client_name} has been removed from the game.")
 
     def cancel_game_due_to_insufficient_players(self):
@@ -421,7 +428,7 @@ class TriviaServer:
                 logging.error(f"Error closing connection for {client_name}: {e}")
         self.running = False
         logging.info("Game canceled due to insufficient players.")
-        print("\033[31mGame canceled due to insufficient players.\033[0m")
+        print_color("Game canceled due to insufficient players.", "red")
 
     def find_available_port(self,max_attempts=50):
         for attempt in range(max_attempts):
@@ -434,7 +441,7 @@ class TriviaServer:
                 return self.starting_port + attempt
             except socket.error as e:
                 logging.info(f"Port {self.starting_port + attempt} is in use. error info {e}")
-                print(f"Port {self.starting_port + attempt} is in use.")
+                print_color(f"Port {self.starting_port + attempt} is in use.", "red")
             finally:
                 # Ensure that the socket is closed
                 sock.close()

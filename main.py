@@ -9,8 +9,10 @@ if __name__ == "__main__":
         server.start()
     except KeyboardInterrupt:
         print("Shutdown requested...exiting")
-    except Exception:
-        traceback.print_exc()
+    # except Exception:
+    #     traceback.print_exc()
     for thread in threading.enumerate():
         if thread != threading.current_thread():
             thread.join()
+
+

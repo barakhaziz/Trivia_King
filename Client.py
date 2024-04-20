@@ -30,7 +30,7 @@ class TriviaClient:
         self.name_suffix = 0
         self.server_port = None
         self.running = True
-        self.server_found= False
+        self.server_found = False
 
     def generate_new_name(self):
         """ Generate a new name by incrementing a suffix. """
